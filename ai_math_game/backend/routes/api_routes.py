@@ -89,25 +89,19 @@ def init_api_routes(question_generator, student_model, adaptive_ai, prompt_parse
             return jsonify({'error': str(e)}), 500
 
     def _generate_hint(question_data, student_answer):
-        """Generates a pedagogical hint using Gemini 3 reasoning."""
-        try:
-            if question_data['operation'] == 'comparison':
-                return "Check the symbols: > (Greater), < (Less), = (Equal)."
+        """Generate a fast, local hint — no API call to avoid blocking."""
+        operation = question_data.get('operation', '')
+        correct = question_data.get('correct_answer')
 
-            pedagogical_prompt = (
-                f"A student was asked: '{question_data['question']}'. "
-                f"The correct answer is {question_data['correct_answer']}. "
-                f"The student incorrectly answered {student_answer}. "
-                "Give a one-sentence friendly hint that helps them find the right path without giving the answer away."
-            )
-
-            response = client.models.generate_content(
-                model=MODEL_ID,
-                contents=pedagogical_prompt
-            )
-            return response.text
-        except Exception:
-            return "Take your time and double-check your calculation!"
+        hints = {
+            'addition': f"Hint: Try counting up from the larger number. Think again!",
+            'subtraction': f"Hint: Think about what number you need to add to get the bigger number.",
+            'multiplication': f"Hint: Multiplication means adding a number to itself multiple times.",
+            'division': f"Hint: Division is splitting into equal groups. Try again!",
+            'comparison': "Hint: Check the symbols: > (Greater), < (Less), = (Equal).",
+            'word_problems': f"Hint: Read the problem carefully. What operation is it asking for?",
+        }
+        return hints.get(operation, "Take your time and double-check your calculation!")
 
     @api_bp.route('/api/submit_answer', methods=['POST'])
     def submit_answer():
