@@ -33,14 +33,15 @@ class BayesianKnowledgeTracer:
     """
     
     def __init__(self):
-        # Default BKT parameters (can be tuned per operation)
+        # BKT parameters tuned for responsive adaptation
+        # Higher P(T) = faster learning detection, lower thresholds = visible adaptation
         self.params = {
-            'addition':       {'p_l0': 0.10, 'p_t': 0.20, 'p_g': 0.25, 'p_s': 0.10},
-            'subtraction':    {'p_l0': 0.08, 'p_t': 0.18, 'p_g': 0.25, 'p_s': 0.12},
-            'multiplication': {'p_l0': 0.05, 'p_t': 0.15, 'p_g': 0.25, 'p_s': 0.15},
-            'division':       {'p_l0': 0.05, 'p_t': 0.12, 'p_g': 0.25, 'p_s': 0.15},
-            'comparison':     {'p_l0': 0.15, 'p_t': 0.25, 'p_g': 0.33, 'p_s': 0.08},
-            'word_problems':  {'p_l0': 0.03, 'p_t': 0.10, 'p_g': 0.25, 'p_s': 0.18},
+            'addition':       {'p_l0': 0.15, 'p_t': 0.40, 'p_g': 0.25, 'p_s': 0.10},
+            'subtraction':    {'p_l0': 0.12, 'p_t': 0.35, 'p_g': 0.25, 'p_s': 0.12},
+            'multiplication': {'p_l0': 0.08, 'p_t': 0.30, 'p_g': 0.25, 'p_s': 0.15},
+            'division':       {'p_l0': 0.08, 'p_t': 0.28, 'p_g': 0.25, 'p_s': 0.15},
+            'comparison':     {'p_l0': 0.20, 'p_t': 0.45, 'p_g': 0.33, 'p_s': 0.08},
+            'word_problems':  {'p_l0': 0.05, 'p_t': 0.25, 'p_g': 0.25, 'p_s': 0.18},
         }
         
         # Student mastery state: {student_id: {operation: P(know)}}
@@ -317,11 +318,11 @@ class MLAdaptiveEngine:
         
         current_idx = self.DIFFICULTY_LEVELS.index(current_diff) if current_diff in self.DIFFICULTY_LEVELS else 0
         
-        if mastery >= 0.85 and p_correct >= 0.80 and total_q >= 3:
-            # Student has mastered this level — move up
+        if mastery >= 0.60 and p_correct >= 0.65 and total_q >= 3:
+            # Student is performing well — move up
             recommendation = 'increase'
             new_idx = min(current_idx + 1, 2)
-        elif mastery < 0.40 and p_correct < 0.45 and total_q >= 3:
+        elif mastery < 0.35 and p_correct < 0.40 and total_q >= 3:
             # Student is struggling — move down
             recommendation = 'decrease'
             new_idx = max(current_idx - 1, 0)

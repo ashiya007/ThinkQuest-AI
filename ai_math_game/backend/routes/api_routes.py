@@ -141,6 +141,9 @@ def init_api_routes(question_generator, student_model, adaptive_ai, prompt_parse
 
             # Get adaptive AI recommendation
             student_performance = student_model.get_student_performance(student_id)
+            student_performance['student_id'] = student_id
+            student_performance['_last_is_correct'] = is_correct
+            student_performance['_last_time_taken'] = time_taken
             ai_analysis = adaptive_ai.analyze_performance(
                 student_performance,
                 question_data['operation']

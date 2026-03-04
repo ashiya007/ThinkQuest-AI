@@ -618,6 +618,9 @@ class PuzzleGame {
         }
         this.showFeedback(feedbackMessage, 'success');
 
+        // Update adaptive learning visuals
+        this.updateAdaptiveUI(aiAnalysis);
+
         // Unlock tile and AUTO-MOVE
         if (this.targetTile) {
             const targetX = this.targetTile.x;
@@ -666,6 +669,9 @@ class PuzzleGame {
             feedbackText += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
         }
         this.showFeedback(feedbackText, 'error');
+
+        // Update adaptive learning visuals
+        this.updateAdaptiveUI(aiAnalysis);
 
         // After a short delay, RESET the answer options so the player can retry the SAME question
         setTimeout(() => {
@@ -853,6 +859,95 @@ class PuzzleGame {
             const j = Math.floor(Math.random() * (i + 1));
             [arr[i], arr[j]] = [arr[j], arr[i]];
         }
+    }
+
+    // ========================================================================
+    // ADAPTIVE LEARNING VISUAL INDICATORS
+    // ========================================================================
+
+    updateAdaptiveUI(aiAnalysis) {
+        if (!aiAnalysis) return;
+
+        // 1. Update Difficulty Badge
+        const badge = document.getElementById('difficultyBadge');
+        if (badge && aiAnalysis.new_difficulty) {
+            const diff = aiAnalysis.new_difficulty;
+            const labels = { easy: '🟢 EASY', medium: '🟡 MEDIUM', hard: '🔴 HARD' };
+            const oldClass = badge.className.replace('difficulty-badge ', '').replace(' badge-pop', '').trim();
+
+            badge.className = `difficulty-badge ${diff}`;
+            badge.textContent = labels[diff] || labels.easy;
+
+            // Animate if difficulty changed
+            if (oldClass !== diff) {
+                badge.classList.add('badge-pop');
+                setTimeout(() => badge.classList.remove('badge-pop'), 600);
+            }
+        }
+
+        // 2. Update Mastery Bars (from BKT)
+        const masteryAll = aiAnalysis.mastery_all;
+        if (masteryAll && Object.keys(masteryAll).length > 0) {
+            const container = document.getElementById('masteryBars');
+            if (container) {
+                container.innerHTML = '';
+                for (const [skill, mastery] of Object.entries(masteryAll)) {
+                    const pct = Math.round(mastery * 100);
+                    const level = pct < 40 ? 'low' : (pct < 70 ? 'mid' : 'high');
+                    container.innerHTML += `
+                        <div class="mastery-skill">
+                            <span class="mastery-skill-name">${skill}</span>
+                            <div class="mastery-bar">
+                                <div class="mastery-fill ${level}" style="width: ${pct}%"></div>
+                            </div>
+                            <span class="mastery-pct">${pct}%</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // 3. Update Model Type badge
+        const modelType = aiAnalysis.model_type;
+        if (modelType) {
+            const el = document.getElementById('modelType');
+            if (el) {
+                const friendly = modelType === 'ml_random_forest + bayesian_knowledge_tracing'
+                    ? 'ML: RandomForest + BKT'
+                    : modelType === 'rule_based'
+                        ? 'Rule-Based Fallback'
+                        : modelType;
+                el.textContent = friendly;
+            }
+        }
+
+        // 4. Show Toast on difficulty change
+        if (aiAnalysis.recommendation === 'increase') {
+            this.showAdaptiveToast(`🔥 Difficulty increased to ${aiAnalysis.new_difficulty.toUpperCase()}!`, 'increase');
+        } else if (aiAnalysis.recommendation === 'decrease') {
+            this.showAdaptiveToast(`💙 Difficulty eased to ${aiAnalysis.new_difficulty.toUpperCase()}`, 'decrease');
+        }
+
+        // Check for mastery milestone
+        if (aiAnalysis.mastery && aiAnalysis.mastery >= 0.85) {
+            this.showAdaptiveToast(`⭐ Skill mastery reached ${Math.round(aiAnalysis.mastery * 100)}%!`, 'mastered');
+        }
+    }
+
+    showAdaptiveToast(message, type) {
+        const toast = document.getElementById('adaptiveToast');
+        if (!toast) return;
+
+        toast.textContent = message;
+        toast.className = `adaptive-toast ${type}`;
+
+        // Trigger show
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        });
     }
 }
 

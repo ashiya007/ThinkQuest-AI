@@ -67,12 +67,14 @@ class AdaptiveAI:
         if _ML_AVAILABLE and self.ml_engine:
             try:
                 student_id = student_performance.get('student_id', 'unknown')
-                is_correct = accuracy > 50  # approximate from last batch
+                # Use the actual is_correct from this submission (passed from api_routes)
+                is_correct = student_performance.get('_last_is_correct', accuracy > 50)
+                actual_time = student_performance.get('_last_time_taken', avg_time)
                 ml_result = self.ml_engine.record_and_analyze(
                     student_id=student_id,
                     operation=operation,
                     is_correct=is_correct,
-                    time_taken=avg_time,
+                    time_taken=actual_time,
                     student_performance=student_performance
                 )
             except Exception as e:
