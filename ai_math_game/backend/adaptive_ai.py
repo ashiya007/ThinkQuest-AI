@@ -1,31 +1,49 @@
 """
 Adaptive Learning AI
-This module implements adaptive difficulty adjustment based on student performance
+This module implements adaptive difficulty adjustment based on student performance.
+Uses ML (RandomForest + Bayesian Knowledge Tracing) with rule-based fallback.
 """
+
+# Try to load ML engine; fall back to rules-only if scikit-learn not installed
+try:
+    from ml_adaptive import MLAdaptiveEngine
+    _ml_engine = MLAdaptiveEngine()
+    _ML_AVAILABLE = True
+    print("[AdaptiveAI] ML engine loaded successfully")
+except Exception as e:
+    _ml_engine = None
+    _ML_AVAILABLE = False
+    print(f"[AdaptiveAI] ML engine unavailable ({e}), using rule-based fallback")
+
 
 class AdaptiveAI:
     def __init__(self):
         # Performance thresholds for difficulty adjustment
         self.thresholds = {
             'accuracy_high': 80,    # Increase difficulty if accuracy > 80%
-            'accuracy_low': 50,     # Decrease difficulty if accuracy <= 50% (was 40%)
-            'time_fast': 8.0,       # Consider fast if time < 8 seconds (made more lenient)
+            'accuracy_low': 50,     # Decrease difficulty if accuracy <= 50%
+            'time_fast': 8.0,       # Consider fast if time < 8 seconds
             'time_slow': 20.0,      # Consider slow if time > 20 seconds
-            'min_questions': 2      # Minimum questions before adjustment (changed from 1 to 2)
+            'min_questions': 2      # Minimum questions before adjustment
         }
         
         # Difficulty progression order
         self.difficulty_progression = ['easy', 'medium', 'hard']
+        
+        # Reference to shared ML engine
+        self.ml_engine = _ml_engine
     
     def analyze_performance(self, student_performance, operation):
         """
-        Analyze student performance and recommend difficulty adjustment
+        Analyze student performance and recommend difficulty adjustment.
+        Uses ML model when available, falls back to rule-based heuristics.
         """
         if operation not in student_performance.get('operation_stats', {}):
             return {
                 'recommendation': 'maintain',
                 'reason': 'No performance data available for this operation',
-                'new_difficulty': 'easy'
+                'new_difficulty': 'easy',
+                'model_type': 'none'
             }
         
         op_stats = student_performance['operation_stats'][operation]
@@ -38,18 +56,54 @@ class AdaptiveAI:
             return {
                 'recommendation': 'maintain',
                 'reason': f'Need at least {self.thresholds["min_questions"]} questions before adjustment (currently {total_questions})',
-                'new_difficulty': student_performance.get('current_difficulties', {}).get(operation, {}).get('current_difficulty', 'easy')
+                'new_difficulty': student_performance.get('current_difficulties', {}).get(operation, {}).get('current_difficulty', 'easy'),
+                'model_type': 'none'
             }
         
         current_difficulty = student_performance.get('current_difficulties', {}).get(operation, {}).get('current_difficulty', 'easy')
         
-        # Determine if difficulty should change
-        recommendation = self._determine_recommendation(accuracy, avg_time, current_difficulty)
+        # --- ML-based analysis (primary) ---
+        ml_result = None
+        if _ML_AVAILABLE and self.ml_engine:
+            try:
+                student_id = student_performance.get('student_id', 'unknown')
+                is_correct = accuracy > 50  # approximate from last batch
+                ml_result = self.ml_engine.record_and_analyze(
+                    student_id=student_id,
+                    operation=operation,
+                    is_correct=is_correct,
+                    time_taken=avg_time,
+                    student_performance=student_performance
+                )
+            except Exception as e:
+                print(f"[AdaptiveAI] ML analysis failed: {e}")
+                ml_result = None
+        
+        # --- Rule-based analysis (fallback or supplement) ---
+        rule_result = self._determine_recommendation(accuracy, avg_time, current_difficulty)
+        
+        # Use ML result if available, otherwise fall back to rules
+        if ml_result:
+            return {
+                'recommendation': ml_result['recommendation'],
+                'reason': f"ML model (mastery={ml_result['mastery']:.0%}, p_correct={ml_result['ml_prediction']['p_correct']:.0%})",
+                'new_difficulty': ml_result['new_difficulty'],
+                'ml_prediction': ml_result['ml_prediction'],
+                'mastery': ml_result['mastery'],
+                'mastery_all': ml_result.get('mastery_all', {}),
+                'model_type': ml_result['model_type'],
+                'performance_metrics': {
+                    'accuracy': accuracy,
+                    'avg_time': avg_time,
+                    'total_questions': total_questions
+                }
+            }
         
         return {
-            'recommendation': recommendation['action'],
-            'reason': recommendation['reason'],
-            'new_difficulty': recommendation['new_difficulty'],
+            'recommendation': rule_result['action'],
+            'reason': rule_result['reason'],
+            'new_difficulty': rule_result['new_difficulty'],
+            'model_type': 'rule_based',
             'performance_metrics': {
                 'accuracy': accuracy,
                 'avg_time': avg_time,
