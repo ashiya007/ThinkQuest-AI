@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Alien Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background: #222;
+        }
+        
+        .debug {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛸 Debug Alien Game</h1>
+        
+        <div class="debug" id="debugInfo">
+            <div>Game State: <span id="gameState">Not Started</span></div>
+            <div>Aliens: <span id="alienCount">0</span></div>
+            <div>Target: <span id="targetDisplay">7</span></div>
+            <div>Score: <span id="score">0</span></div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div>
+            <button class="btn" onclick="startGame()">Start Game</button>
+            <button class="btn" onclick="addTestAlien()">Add Test Alien</button>
+            <button class="btn" onclick="clearAliens()">Clear Aliens</button>
+        </div>
+    </div>
+
+    <script>
+        class DebugAlienGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Game state
+                this.isRunning = false;
+                this.score = 0;
+                this.targetNumber = 7;
+                
+                // Game objects
+                this.aliens = [];
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.gameLoop();
+                this.updateDebugInfo();
+            }
+            
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    if (!this.isRunning) return;
+                    
+                    if (e.key === ' ') {
+                        this.addTestAlien();
+                    }
+                });
+            }
+            
+            addTestAlien() {
+                const testAlien = {
+                    x: 100,
+                    y: 100,
+                    width: 60,
+                    height: 30,
+                    speed: 2,
+                    expression: "5 + 2",
+                    isCorrect: true,
+                    color: '#4caf50'
+                };
+                
+                this.aliens.push(testAlien);
+                this.updateDebugInfo();
+                console.log('Added test alien:', testAlien);
+            }
+            
+            clearAliens() {
+                this.aliens = [];
+                this.updateDebugInfo();
+                console.log('Cleared all aliens');
+            }
+            
+            update() {
+                if (!this.isRunning) return;
+                
+                // Update aliens
+                this.aliens.forEach(alien => {
+                    alien.x += alien.speed;
+                    alien.y += 0.5; // Slight vertical movement
+                });
+                
+                // Remove off-screen aliens
+                for (let i = this.aliens.length - 1; i >= 0; i--) {
+                    const alien = this.aliens[i];
+                    if (alien.x > this.canvas.width || alien.y > this.canvas.height) {
+                        this.aliens.splice(i, 1);
+                    }
+                }
+                
+                this.updateDebugInfo();
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.fillStyle = '#222';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw aliens
+                this.aliens.forEach(alien => {
+                    this.ctx.fillStyle = alien.color;
+                    this.ctx.fillRect(alien.x, alien.y, alien.width, alien.height);
+                    
+                    // Draw expression
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 14px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(alien.expression, alien.x + alien.width/2, alien.y + alien.height/2);
+                });
+            }
+            
+            updateDebugInfo() {
+                document.getElementById('gameState').textContent = this.isRunning ? 'Running' : 'Stopped';
+                document.getElementById('alienCount').textContent = this.aliens.length;
+                document.getElementById('targetDisplay').textContent = this.targetNumber;
+                document.getElementById('score').textContent = this.score;
+            }
+            
+            gameLoop() {
+                this.update();
+                this.render();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+            
+            startGame() {
+                this.isRunning = true;
+                this.updateDebugInfo();
+            }
+        }
+        
+        let game;
+        
+        function startGame() {
+            if (game) game.startGame();
+        }
+        
+        function addTestAlien() {
+            if (game) game.addTestAlien();
+        }
+        
+        function clearAliens() {
+            if (game) game.clearAliens();
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new DebugAlienGame();
+        });
+    </script>
+</body>
+</html>

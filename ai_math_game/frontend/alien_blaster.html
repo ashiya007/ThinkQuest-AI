@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Alien Blaster - ThinkQuest AI</title>
+    <script src="https://pixijs.download/v7.x/pixi.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0c0c1e 0%, #1a1a3e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: white;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ffff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .level-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="game-wrapper">
+        <div class="game-header">
+            <div class="stat-item">
+                <div class="stat-value" id="scoreDisplay">0</div>
+                <div class="stat-label">SCORE</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="levelDisplay">1</div>
+                <div class="stat-label">LEVEL</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="accuracyDisplay">0%</div>
+                <div class="stat-label">ACCURACY</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="streakDisplay">0</div>
+                <div class="stat-label">STREAK</div>
+            </div>
+        </div>
+        <div id="gameContainer"></div>
+    </div>
+
+    <script src="question_fallback.js"></script>
+    <script>
+        // ============================================================================
+        // ALIEN BLASTER - Integrated with ThinkQuest AI Orchestrator
+        // ============================================================================
+
+        class AlienBlasterGame {
+            constructor() {
+                this.config = { width: 800, height: 600 };
+                this.sessionId = null;
+                this.studentId = null;
+                this.gameConfig = null;
+
+                // Game state
+                this.score = 0;
+                this.level = 1;
+                this.streak = 0;
+                this.maxStreak = 0;
+                this.ufos = [];
+                this.gameActive = false;
+                this.targetSum = null;
+
+                // Level progression system
+                this.levelConfig = null;
+                this.questionsAnswered = 0;
+                this.correctInLevel = 0;
+                this.questionsPerLevel = 10;
+
+                // Player performance tracking
+                this.playerProfile = {
+                    totalProblems: 0,
+                    correctAnswers: 0,
+                    accuracy: 0,
+                    avgResponseTime: 0,
+                    recentAnswers: [],
+                    currentDifficulty: 'easy'
+                };
+
+                // Visual theme (will be set from config)
+                this.theme = {
+                    primary: '#667eea',
+                    accent: '#00ffff',
+                    correct: '#48bb78',
+                    wrong: '#f56565'
+                };
+
+                this.lanes = [150, 315, 485, 650];
+
+                this.init();
+            }
+
+            async init() {
+                // Check if we're in a session
+                const pathParts = window.location.pathname.split('/');
+                if (pathParts[1] === 'play' && pathParts[2]) {
+                    this.sessionId = pathParts[2].toUpperCase();
+                    await this.loadFromSession();
+                } else {
+                    await this.loadFromStorage();
+                }
+
+                // Initialize PIXI
+                this.app = new PIXI.Application({
+                    width: this.config.width,
+                    height: this.config.height,
+                    backgroundColor: 0x050510
+                });
+                document.getElementById('gameContainer').appendChild(this.app.view);
+
+                // Create layers
+                this.gameLayer = new PIXI.Container();
+                this.uiLayer = new PIXI.Container();
+                this.app.stage.addChild(this.gameLayer, this.uiLayer);
+
+                // Setup game elements
+                this.setupCannon();
+                this.setupStars();
+
+                // Start game loop
+                this.app.ticker.add((delta) => this.gameLoop(delta));
+
+                // Generate initial level config from AI
+                await this.generateLevelConfig();
+
+                // Show start screen
+                this.showStartScreen();
+            }
+
+            async loadFromSession() {
+                try {
+                    this.studentId = prompt('Enter your Student ID:') || 'blaster_' + Date.now();
+
+                    const res = await fetch('/api/join_session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            session_id: this.sessionId,
+                            student_id: this.studentId
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        this.gameConfig = data.game_config;
+                        this.applyTheme();
+                    } else {
+                        this.loadDefaultConfig();
+                    }
+                } catch (e) {
+                    console.error('Session load failed:', e);
+                    this.loadDefaultConfig();
+                }
+            }
+
+            async loadFromStorage() {
+                const configData = sessionStorage.getItem('gameConfig');
+                if (configData) {
+                    this.gameConfig = JSON.parse(configData);
+                    this.applyTheme();
+                } else {
+                    this.loadDefaultConfig();
+                }
+                this.studentId = 'blaster_' + Date.now();
+            }
+
+            loadDefaultConfig() {
+                this.gameConfig = {
+                    class_level: 3,
+                    operations: ['addition'],
+                    difficulty: 'medium',
+                    theme: 'space'
+                };
+            }
+
+            applyTheme() {
+                if (this.gameConfig.visual_assets) {
+                    const va = this.gameConfig.visual_assets;
+                    this.theme = {
+                        primary: va.primary_color || '#667eea',
+                        accent: va.accent_color || '#00ffff',
+                        correct: va.highlight_color || '#48bb78',
+                        wrong: '#f56565'
+                    };
+                }
+            }
+
+            // ========================================================================
+            // AI-POWERED LEVEL GENERATION
+            // ========================================================================
+
+            async generateLevelConfig() {
+                let speed = 0.2;
+                let maxNum = 9;
+                let diff = 'easy';
+
+                if (this.playerProfile.totalProblems >= 3 && this.playerProfile.accuracy >= 0.8) {
+                    speed = 0.4;
+                    maxNum = 19;
+                    diff = 'medium';
+                }
+                if (this.playerProfile.totalProblems >= 10 && this.playerProfile.accuracy >= 0.9) {
+                    speed = 0.6;
+                    maxNum = 50;
+                    diff = 'hard';
+                }
+
+                this.levelConfig = {
+                    level: this.level,
+                    ufo_speed: speed,
+                    max_number: maxNum,
+                    operations: this.gameConfig.operations || ['addition'],
+                    spawn_rate: Math.max(3000 - (this.level * 200), 1000),
+                    bonus_multiplier: diff === 'hard' ? 2 : (diff === 'medium' ? 1.5 : 1),
+                    level_message: `Difficulty: ${diff.toUpperCase()}`
+                };
+
+                console.log('Adaptive Level Config:', this.levelConfig);
+            }
+
+            getDefaultLevelConfig() {
+                const baseSpeed = 0.3 + (this.level * 0.1);
+                const maxNum = Math.min(5 + (this.level * 3), 50);
+
+                return {
+                    level: this.level,
+                    ufo_speed: Math.min(baseSpeed, 1.2),
+                    max_number: maxNum,
+                    operations: this.gameConfig.operations || ['addition'],
+                    spawn_rate: Math.max(3000 - (this.level * 200), 1000),
+                    bonus_multiplier: 1 + (this.level * 0.1),
+                    level_message: `Level ${this.level} - Good luck!`
+                };
+            }
+
+            async fetchQuestion() {
+                const operation = this.getRandomOperation();
+
+                try {
+                    const res = await fetch('/api/generate_question', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: this.studentId,
+                            class: this.gameConfig.class_level || 3,
+                            operation: operation,
+                            game_type: 'shooter',
+                            theme: this.gameConfig.theme || 'space',
+                            difficulty_override: this.levelConfig?.level_message?.includes('MEDIUM') ? 'medium' :
+                                (this.levelConfig?.level_message?.includes('HARD') ? 'hard' : 'easy')
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        let qText = data.question.question;
+                        qText = qText.replace(/what is /gi, '').replace(/\?/g, '').trim();
+                        return {
+                            question: qText,
+                            answer: data.question.correct_answer,
+                            question_id: data.question.question_id,
+                            operation: operation
+                        };
+                    }
+                } catch (e) {
+                    console.error('Question fetch failed:', e);
+                }
+
+                // Fallback to local generation
+                return this.generateLocalQuestion(operation);
+            }
+
+            generateLocalQuestion(operation) {
+                const isMedium = this.levelConfig?.level_message?.includes('MEDIUM');
+                const isHard = this.levelConfig?.level_message?.includes('HARD');
+                const diff = isHard ? 'hard' : (isMedium ? 'medium' : 'easy');
+                const q = generateLocalMathQuestion(operation, diff);
+                // Map to alien blaster format: short text for UFO labels
+                const shortQ = q.question.replace(/What is /i, '').replace(/\?/g, '').trim();
+                return { question: shortQ, answer: q.correct_answer, operation: q.operation };
+            }
+
+            getRandomOperation() {
+                const ops = this.gameConfig.operations || ['addition'];
+                return ops[Math.floor(Math.random() * ops.length)];
+            }
+
+            // ========================================================================
+            // GAME SETUP
+            // ========================================================================
+
+            setupCannon() {
+                this.cannon = new PIXI.Container();
+                this.cannon.position.set(400, 530);
+                this.gameLayer.addChild(this.cannon);
+
+                // Base
+                const base = new PIXI.Graphics()
+                    .lineStyle(3, 0x00ffff)
+                    .beginFill(0x111111)
+                    .drawRoundedRect(-50, -50, 100, 100, 12)
+                    .endFill();
+                this.cannon.addChild(base);
+
+                // Target display
+                this.targetText = new PIXI.Text("?", {
+                    fontSize: 48,
+                    fill: "#00ffff",
+                    fontWeight: 'bold',
+                    dropShadow: true,
+                    dropShadowColor: '#000000',
+                    dropShadowDistance: 2
+                });
+                this.targetText.anchor.set(0.5);
+                this.cannon.addChild(this.targetText);
+
+                // Turret
+                this.turret = new PIXI.Graphics()
+                    .beginFill(0x33b5e5)
+                    .drawRect(-12, -75, 24, 35)
+                    .endFill()
+                    .beginFill(0xffff00)
+                    .drawCircle(0, -75, 8)
+                    .endFill();
+                this.cannon.addChild(this.turret);
+            }
+
+            setupStars() {
+                for (let i = 0; i < 100; i++) {
+                    const star = new PIXI.Graphics()
+                        .beginFill(0xffffff, Math.random() * 0.5 + 0.3)
+                        .drawCircle(0, 0, Math.random() * 2)
+                        .endFill();
+                    star.position.set(
+                        Math.random() * this.config.width,
+                        Math.random() * this.config.height
+                    );
+                    this.gameLayer.addChildAt(star, 0);
+                }
+            }
+
+            // ========================================================================
+            // UFO MANAGEMENT
+            // ========================================================================
+
+            async spawnUFO(laneIndex) {
+                if (!this.gameActive) return;
+
+                const questionData = await this.fetchQuestion();
+
+                const ufo = new PIXI.Container();
+
+                // UFO body
+                const colors = [0xff4444, 0x44ff44, 0xffff44, 0xaa44ff];
+                const body = new PIXI.Graphics()
+                    .beginFill(0xffffff, 0.2)
+                    .drawCircle(0, -12, 20)
+                    .endFill()
+                    .beginFill(colors[laneIndex])
+                    .drawEllipse(0, 0, 50, 18)
+                    .endFill();
+
+                // Glow effect
+                const glow = new PIXI.Graphics()
+                    .beginFill(colors[laneIndex], 0.3)
+                    .drawEllipse(0, 5, 55, 10)
+                    .endFill();
+
+                // Question label
+                const label = new PIXI.Text(questionData.question, {
+                    fontSize: 20,
+                    fill: "#ffffff",
+                    fontWeight: 'bold',
+                    dropShadow: true,
+                    dropShadowDistance: 1
+                });
+                label.anchor.set(0.5);
+                label.y = -2;
+
+                ufo.addChild(glow, body, label);
+                ufo.x = this.lanes[laneIndex];
+                ufo.y = -60;
+                ufo.answer = questionData.answer;
+                ufo.questionId = questionData.question_id;
+                ufo.lane = laneIndex;
+                ufo.labelRef = label;
+                ufo.spawnTime = Date.now();
+                ufo.baseColor = colors[laneIndex];
+
+                // Make clickable
+                ufo.eventMode = 'static';
+                ufo.cursor = 'pointer';
+                ufo.on('pointerdown', () => this.handleShot(ufo));
+
+                this.gameLayer.addChild(ufo);
+                this.ufos.push(ufo);
+
+                // Pick new target if needed or if current is invalid
+                if (this.targetSum === null || !this.ufos.some(u => u.answer === this.targetSum)) {
+                    this.pickNewTarget();
+                }
+            }
+
+            handleShot(ufo) {
+                if (!this.gameActive) return;
+
+                const responseTime = Date.now() - ufo.spawnTime;
+
+                // Rotate turret toward UFO
+                this.turret.rotation = Math.atan2(ufo.y - this.cannon.y, ufo.x - this.cannon.x) + Math.PI / 2;
+
+                if (ufo.answer === this.targetSum) {
+                    // CORRECT!
+                    this.handleCorrectAnswer(ufo, responseTime);
+                } else {
+                    // WRONG!
+                    this.handleWrongAnswer(ufo, responseTime);
+                }
+
+                this.updateStats();
+            }
+
+            async handleCorrectAnswer(ufo, responseTime) {
+                this.playerProfile.totalProblems++;
+                this.playerProfile.correctAnswers++;
+                this.correctInLevel++;
+                this.streak++;
+                this.maxStreak = Math.max(this.maxStreak, this.streak);
+
+                // Calculate score with streak bonus
+                const basePoints = 10;
+                const streakBonus = Math.min(this.streak, 10);
+                const levelBonus = this.levelConfig?.bonus_multiplier || 1;
+                const points = Math.round(basePoints * (1 + streakBonus * 0.1) * levelBonus);
+                this.score += points;
+
+                // Track for adaptive difficulty
+                this.playerProfile.recentAnswers.push({ correct: true, responseTime });
+                if (this.playerProfile.recentAnswers.length > 20) {
+                    this.playerProfile.recentAnswers.shift();
+                }
+                this.updatePlayerStats();
+
+                // Visual feedback - laser beam
+                const beam = new PIXI.Graphics()
+                    .lineStyle(4, 0x00ff00)
+                    .moveTo(this.cannon.x, this.cannon.y - 60)
+                    .lineTo(ufo.x, ufo.y);
+                this.gameLayer.addChild(beam);
+
+                // Explosion effect
+                this.createExplosion(ufo.x, ufo.y, 0x00ff00);
+
+                // Show points
+                this.showFloatingText(`+${points}`, ufo.x, ufo.y, '#00ff00');
+
+                setTimeout(() => this.gameLayer.removeChild(beam), 100);
+
+                // Remove UFO and spawn new one
+                const lane = ufo.lane;
+                this.gameLayer.removeChild(ufo);
+                this.ufos = this.ufos.filter(u => u !== ufo);
+
+                // Submit answer to backend
+                if (ufo.questionId) {
+                    this.submitAnswer(ufo.questionId, ufo.answer, responseTime);
+                }
+
+                // Check for level up
+                this.questionsAnswered++;
+                if (this.questionsAnswered >= this.questionsPerLevel) {
+                    await this.levelUp();
+                    return;
+                }
+
+                // Pick new target immediately from remaining ufos
+                this.pickNewTarget();
+
+                // Spawn new UFO in background
+                this.spawnUFO(lane);
+            }
+
+            handleWrongAnswer(ufo, responseTime) {
+                this.playerProfile.totalProblems++;
+                this.streak = 0;
+                this.score = Math.max(0, this.score - 5);
+
+                // Track for adaptive difficulty
+                this.playerProfile.recentAnswers.push({ correct: false, responseTime });
+                if (this.playerProfile.recentAnswers.length > 20) {
+                    this.playerProfile.recentAnswers.shift();
+                }
+                this.updatePlayerStats();
+
+                // Visual feedback
+                ufo.labelRef.style.fill = '#ff4444';
+                this.showFloatingText('MISS!', ufo.x, ufo.y, '#ff4444');
+
+                // Shake effect
+                const originalX = ufo.x;
+                let shakeCount = 0;
+                const shake = setInterval(() => {
+                    ufo.x = originalX + (shakeCount % 2 === 0 ? 5 : -5);
+                    shakeCount++;
+                    if (shakeCount > 6) {
+                        clearInterval(shake);
+                        ufo.x = originalX;
+                        ufo.labelRef.style.fill = '#ffffff';
+                    }
+                }, 50);
+
+                // Regenerate question for this UFO
+                this.regenerateUFOQuestion(ufo);
+            }
+
+            async regenerateUFOQuestion(ufo) {
+                const questionData = await this.fetchQuestion();
+                ufo.answer = questionData.answer;
+                ufo.questionId = questionData.question_id;
+                ufo.labelRef.text = questionData.question;
+                ufo.spawnTime = Date.now();
+
+                // Make sure there's still a valid target
+                if (!this.ufos.some(u => u.answer === this.targetSum)) {
+                    this.pickNewTarget();
+                }
+            }
+
+            pickNewTarget() {
+                if (this.ufos.length > 0) {
+                    const answers = this.ufos.map(u => u.answer);
+                    this.targetSum = answers[Math.floor(Math.random() * answers.length)];
+                    this.targetText.text = this.targetSum;
+
+                    // Animate target change
+                    this.targetText.scale.set(1.3);
+                    setTimeout(() => this.targetText.scale.set(1), 150);
+                } else {
+                    this.targetSum = null;
+                    if (this.targetText) this.targetText.text = '?';
+                }
+            }
+
+            // ========================================================================
+            // LEVEL PROGRESSION
+            // ========================================================================
+
+            async levelUp() {
+                this.gameActive = false;
+                this.level++;
+                this.questionsAnswered = 0;
+                this.correctInLevel = 0;
+
+                // Generate new level config from AI
+                await this.generateLevelConfig();
+
+                // Show level up screen
+                this.showLevelUpScreen();
+            }
+
+            showLevelUpScreen() {
+                const overlay = new PIXI.Container();
+
+                const bg = new PIXI.Graphics()
+                    .beginFill(0x000000, 0.85)
+                    .drawRect(0, 0, 800, 600)
+                    .endFill();
+
+                const title = new PIXI.Text(`LEVEL ${this.level}!`, {
+                    fontSize: 60,
+                    fill: '#00ffff',
+                    fontWeight: 'bold',
+                    dropShadow: true,
+                    dropShadowDistance: 3
+                });
+                title.anchor.set(0.5);
+                title.position.set(400, 180);
+
+                const message = new PIXI.Text(this.levelConfig?.level_message || 'Get ready!', {
+                    fontSize: 24,
+                    fill: '#ffffff'
+                });
+                message.anchor.set(0.5);
+                message.position.set(400, 260);
+
+                const statsText = new PIXI.Text(
+                    `Speed: ${(this.levelConfig?.ufo_speed || 0.5).toFixed(1)}x | Max Number: ${this.levelConfig?.max_number || 10}`,
+                    { fontSize: 18, fill: '#aaaaaa' }
+                );
+                statsText.anchor.set(0.5);
+                statsText.position.set(400, 310);
+
+                const continueBtn = this.createButton('CONTINUE', 400, 400, () => {
+                    this.uiLayer.removeChild(overlay);
+                    this.gameActive = true;
+                });
+
+                overlay.addChild(bg, title, message, statsText, continueBtn);
+                this.uiLayer.addChild(overlay);
+            }
+
+            // ========================================================================
+            // VISUAL EFFECTS
+            // ========================================================================
+
+            createExplosion(x, y, color) {
+                for (let i = 0; i < 12; i++) {
+                    const particle = new PIXI.Graphics()
+                        .beginFill(color)
+                        .drawCircle(0, 0, 4)
+                        .endFill();
+                    particle.position.set(x, y);
+
+                    const angle = (i / 12) * Math.PI * 2;
+                    const speed = 3 + Math.random() * 3;
+                    particle.vx = Math.cos(angle) * speed;
+                    particle.vy = Math.sin(angle) * speed;
+
+                    this.gameLayer.addChild(particle);
+
+                    const animate = () => {
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+                        particle.alpha -= 0.05;
+                        if (particle.alpha <= 0) {
+                            this.gameLayer.removeChild(particle);
+                        } else {
+                            requestAnimationFrame(animate);
+                        }
+                    };
+                    animate();
+                }
+            }
+
+            showFloatingText(text, x, y, color) {
+                const floatText = new PIXI.Text(text, {
+                    fontSize: 28,
+                    fill: color,
+                    fontWeight: 'bold',
+                    dropShadow: true,
+                    dropShadowDistance: 2
+                });
+                floatText.anchor.set(0.5);
+                floatText.position.set(x, y);
+                this.uiLayer.addChild(floatText);
+
+                let vy = -3;
+                const animate = () => {
+                    floatText.y += vy;
+                    floatText.alpha -= 0.03;
+                    if (floatText.alpha <= 0) {
+                        this.uiLayer.removeChild(floatText);
+                    } else {
+                        requestAnimationFrame(animate);
+                    }
+                };
+                animate();
+            }
+
+            showNotification(message, color = '#00ff00') {
+                const notification = new PIXI.Text(message, {
+                    fontSize: 32,
+                    fill: color,
+                    fontWeight: 'bold'
+                });
+                notification.anchor.set(0.5);
+                notification.position.set(400, 100);
+                notification.alpha = 0;
+                this.uiLayer.addChild(notification);
+
+                let alpha = 0;
+                const fadeIn = setInterval(() => {
+                    alpha += 0.1;
+                    notification.alpha = alpha;
+                    if (alpha >= 1) {
+                        clearInterval(fadeIn);
+                        setTimeout(() => {
+                            const fadeOut = setInterval(() => {
+                                alpha -= 0.1;
+                                notification.alpha = alpha;
+                                if (alpha <= 0) {
+                                    clearInterval(fadeOut);
+                                    this.uiLayer.removeChild(notification);
+                                }
+                            }, 50);
+                        }, 1500);
+                    }
+                }, 50);
+            }
+
+            // ========================================================================
+            // GAME LOOP & STATS
+            // ========================================================================
+
+            gameLoop(delta) {
+                if (!this.gameActive) return;
+
+                const speed = this.levelConfig?.ufo_speed || 0.5;
+
+                for (const ufo of this.ufos) {
+                    ufo.y += speed * delta;
+
+                    // Hover animation
+                    ufo.x += Math.sin(Date.now() / 500 + ufo.lane) * 0.3;
+
+                    // Game over if UFO reaches bottom
+                    if (ufo.y > 480) {
+                        this.gameOver();
+                        return;
+                    }
+                }
+            }
+
+            updatePlayerStats() {
+                const recent = this.playerProfile.recentAnswers.slice(-10);
+                const correctCount = recent.filter(a => a.correct).length;
+                this.playerProfile.accuracy = this.playerProfile.totalProblems > 0
+                    ? this.playerProfile.correctAnswers / this.playerProfile.totalProblems
+                    : 0;
+
+                const times = recent.map(a => a.responseTime);
+                this.playerProfile.avgResponseTime = times.length > 0
+                    ? times.reduce((a, b) => a + b, 0) / times.length
+                    : 0;
+            }
+
+            updateStats() {
+                document.getElementById('scoreDisplay').textContent = this.score;
+                document.getElementById('levelDisplay').textContent = this.level;
+                document.getElementById('accuracyDisplay').textContent =
+                    Math.round(this.playerProfile.accuracy * 100) + '%';
+                document.getElementById('streakDisplay').textContent = this.streak;
+            }
+
+            async submitAnswer(questionId, answer, responseTime) {
+                try {
+                    await fetch('/api/submit_answer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: this.studentId,
+                            question_id: questionId,
+                            answer: answer,
+                            time_taken: responseTime / 1000
+                        })
+                    });
+                } catch (e) {
+                    console.error('Answer submission failed:', e);
+                }
+            }
+
+            // ========================================================================
+            // SCREENS
+            // ========================================================================
+
+            createButton(text, x, y, callback) {
+                const btn = new PIXI.Container();
+                btn.position.set(x, y);
+
+                const bg = new PIXI.Graphics()
+                    .beginFill(0x00ffff)
+                    .drawRoundedRect(-100, -30, 200, 60, 12)
+                    .endFill();
+
+                const label = new PIXI.Text(text, {
+                    fontSize: 22,
+                    fill: '#000000',
+                    fontWeight: 'bold'
+                });
+                label.anchor.set(0.5);
+
+                btn.addChild(bg, label);
+                btn.eventMode = 'static';
+                btn.cursor = 'pointer';
+                btn.on('pointerdown', callback);
+                btn.on('pointerover', () => btn.scale.set(1.05));
+                btn.on('pointerout', () => btn.scale.set(1));
+
+                return btn;
+            }
+
+            showStartScreen() {
+                const screen = new PIXI.Container();
+
+                const bg = new PIXI.Graphics()
+                    .beginFill(0x000000, 0.9)
+                    .drawRect(0, 0, 800, 600)
+                    .endFill();
+
+                const title = new PIXI.Text('ALIEN BLASTER', {
+                    fontSize: 56,
+                    fill: '#00ffff',
+                    fontWeight: 'bold',
+                    dropShadow: true,
+                    dropShadowColor: '#0066ff',
+                    dropShadowDistance: 4
+                });
+                title.anchor.set(0.5);
+                title.position.set(400, 180);
+
+                const subtitle = new PIXI.Text('Shoot the aliens with the correct answer!', {
+                    fontSize: 20,
+                    fill: '#aaaaaa'
+                });
+                subtitle.anchor.set(0.5);
+                subtitle.position.set(400, 250);
+
+                const ops = (this.gameConfig.operations || ['addition']).join(', ');
+                const info = new PIXI.Text(`Class ${this.gameConfig.class_level || 3} | ${ops}`, {
+                    fontSize: 16,
+                    fill: '#666666'
+                });
+                info.anchor.set(0.5);
+                info.position.set(400, 290);
+
+                const startBtn = this.createButton('START GAME', 400, 380, () => {
+                    this.uiLayer.removeChild(screen);
+                    this.startGame();
+                });
+
+                screen.addChild(bg, title, subtitle, info, startBtn);
+                this.uiLayer.addChild(screen);
+            }
+
+            async startGame() {
+                this.gameActive = true;
+                this.score = 0;
+                this.level = 1;
+                this.streak = 0;
+                this.questionsAnswered = 0;
+
+                // Spawn initial UFOs
+                for (let i = 0; i < 4; i++) {
+                    await this.spawnUFO(i);
+                }
+
+                this.updateStats();
+            }
+
+            gameOver() {
+                this.gameActive = false;
+
+                // Clear UFOs
+                this.ufos.forEach(ufo => this.gameLayer.removeChild(ufo));
+                this.ufos = [];
+
+                const screen = new PIXI.Container();
+
+                const bg = new PIXI.Graphics()
+                    .beginFill(0x000000, 0.9)
+                    .drawRect(0, 0, 800, 600)
+                    .endFill();
+
+                const title = new PIXI.Text('GAME OVER', {
+                    fontSize: 56,
+                    fill: '#ff4444',
+                    fontWeight: 'bold'
+                });
+                title.anchor.set(0.5);
+                title.position.set(400, 150);
+
+                const stats = new PIXI.Text(
+                    `Score: ${this.score}\nLevel: ${this.level}\nAccuracy: ${Math.round(this.playerProfile.accuracy * 100)}%\nMax Streak: ${this.maxStreak}`,
+                    { fontSize: 24, fill: '#ffffff', align: 'center', lineHeight: 36 }
+                );
+                stats.anchor.set(0.5);
+                stats.position.set(400, 280);
+
+                const retryBtn = this.createButton('TRY AGAIN', 400, 420, () => {
+                    this.uiLayer.removeChild(screen);
+                    this.resetGame();
+                });
+
+                screen.addChild(bg, title, stats, retryBtn);
+                this.uiLayer.addChild(screen);
+            }
+
+            async resetGame() {
+                this.playerProfile = {
+                    totalProblems: 0,
+                    correctAnswers: 0,
+                    accuracy: 0,
+                    avgResponseTime: 0,
+                    recentAnswers: [],
+                    currentDifficulty: 'easy'
+                };
+                this.level = 1;
+                this.maxStreak = 0;
+                this.targetSum = null;
+
+                await this.generateLevelConfig();
+                await this.startGame();
+            }
+        }
+
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            new AlienBlasterGame();
+        });
+    </script>
+</body>
+
+</html>

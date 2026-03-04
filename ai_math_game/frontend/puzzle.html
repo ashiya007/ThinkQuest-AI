@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puzzle Game - AI Math Learning</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Game Header -->
+        <header class="game-header">
+            <div class="game-info">
+                <h1>🧩 Math Puzzle Game</h1>
+                <div class="student-info">
+                    <span id="studentIdDisplay"></span>
+                    <span id="classDisplay"></span>
+                </div>
+            </div>
+            <div class="game-stats">
+                <div class="stat">
+                    <span class="stat-label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Level:</span>
+                    <span id="level">1</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Accuracy:</span>
+                    <span id="accuracy">100%</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Game Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-text">Question <span id="currentQuestion">1</span> of <span id="totalQuestions">10</span></span>
+        </div>
+
+        <!-- Main Game Area -->
+        <main class="game-main">
+            <!-- Question Display -->
+            <section class="question-section">
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="operation-badge" id="operationBadge">Addition</span>
+                        <span class="difficulty-badge" id="difficultyBadge">Easy</span>
+                    </div>
+                    <div class="question-text" id="questionText">
+                        Loading question...
+                    </div>
+                    <div class="timer" id="timer">
+                        <span class="timer-icon">⏱️</span>
+                        <span id="timeDisplay">0s</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Answer Options -->
+            <section class="answers-section">
+                <div class="answers-grid" id="answersGrid">
+                    <!-- Answer options will be generated dynamically -->
+                </div>
+            </section>
+
+            <!-- Feedback Section -->
+            <section class="feedback-section" id="feedbackSection" style="display: none;">
+                <div class="feedback-card" id="feedbackCard">
+                    <div class="feedback-icon" id="feedbackIcon"></div>
+                    <h3 id="feedbackTitle"></h3>
+                    <p id="feedbackMessage"></p>
+                    <div class="hint-box" id="hintBox" style="display: none;">
+                        <h4>💡 Hint:</h4>
+                        <p id="hintText"></p>
+                    </div>
+                    <button class="btn btn-primary" id="nextQuestionBtn">Next Question →</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Game Controls -->
+        <footer class="game-controls">
+            <button class="btn btn-secondary" id="pauseBtn">⏸️ Pause</button>
+            <button class="btn btn-secondary" id="hintBtn">💡 Get Hint</button>
+            <button class="btn btn-danger" id="quitBtn">🏠 Quit Game</button>
+        </footer>
+
+        <!-- Pause Overlay -->
+        <div class="pause-overlay" id="pauseOverlay" style="display: none;">
+            <div class="pause-content">
+                <h2>⏸️ Game Paused</h2>
+                <p>Take a break! Your progress is saved.</p>
+                <div class="pause-buttons">
+                    <button class="btn btn-primary" id="resumeBtn">▶️ Resume</button>
+                    <button class="btn btn-secondary" id="quitFromPauseBtn">🏠 Quit Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div class="game-over-overlay" id="gameOverOverlay" style="display: none;">
+            <div class="game-over-content">
+                <h2 id="gameOverTitle">🎉 Game Complete!</h2>
+                <div class="final-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="finalScore">0</span>
+                        <span class="stat-name">Final Score</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="finalAccuracy">0%</span>
+                        <span class="stat-name">Accuracy</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="totalTime">0s</span>
+                        <span class="stat-name">Total Time</span>
+                    </div>
+                </div>
+                <div class="performance-message" id="performanceMessage"></div>
+                <div class="game-over-buttons">
+                    <button class="btn btn-primary" id="playAgainBtn">🔄 Play Again</button>
+                    <button class="btn btn-secondary" id="viewReportBtn">📊 View Report</button>
+                    <button class="btn btn-secondary" id="homeBtn">🏠 Home</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <p>Loading next question...</p>
+        </div>
+
+        <!-- Message Modal -->
+        <div class="modal" id="messageModal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3 id="modalTitle">Message</h3>
+                <p id="modalMessage"></p>
+                <button class="btn btn-primary" id="modalOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

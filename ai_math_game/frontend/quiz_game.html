@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Quiz Game - AI Generated</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .quiz-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .question-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .question-text {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+
+        .answer-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .answer-btn {
+            padding: 20px;
+            background: white;
+            color: #333;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .answer-btn:hover {
+            background: #f0f0f0;
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .answer-btn.correct {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .answer-btn.incorrect {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+
+        .feedback {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .feedback.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .feedback.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="quiz-container">
+        <h1>📝 Math Quiz Game</h1>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Question</div>
+                <div class="stat-value" id="questionNumber">1/10</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value" id="accuracy">0%</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width: 10%"></div>
+        </div>
+
+        <div class="question-card">
+            <div class="question-text" id="questionText">Loading question...</div>
+            <div class="answer-options" id="answerOptions"></div>
+        </div>
+
+        <div id="feedback" class="feedback" style="display: none;"></div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display: none;">Next Question →</button>
+            <button class="btn" onclick="resetQuiz()">Reset Quiz</button>
+        </div>
+    </div>
+
+    <script src="question_fallback.js"></script>
+    <script>
+        class QuizGame {
+            constructor() {
+                this.gameConfig = null;
+                this.currentQuestion = null;
+                this.score = 0;
+                this.currentQuestionIndex = 0;
+                this.totalQuestions = 10;
+                this.correctAnswers = 0;
+                this.totalAnswered = 0;
+                this.isAnswered = false;
+                this.questionStartTime = null;
+
+                // Persistent student ID via localStorage
+                this.studentId = localStorage.getItem('quiz_student_id');
+                if (!this.studentId) {
+                    this.studentId = 'quiz_' + Date.now();
+                    localStorage.setItem('quiz_student_id', this.studentId);
+                }
+
+                this.init();
+            }
+
+            async init() {
+                // Load game configuration from session storage
+                const configData = sessionStorage.getItem('gameConfig');
+                if (configData) {
+                    this.gameConfig = JSON.parse(configData);
+                } else {
+                    // Default configuration
+                    this.gameConfig = {
+                        class_level: 3,
+                        math_topic: 'addition',
+                        operations: ['addition'],
+                        difficulty: 'medium',
+                        game_type: 'quiz'
+                    };
+                }
+
+                // Register student with backend
+                await this.registerStudent();
+
+                await this.loadQuestion();
+            }
+
+            async registerStudent() {
+                try {
+                    await fetch('/api/register_student', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: this.studentId,
+                            class: this.gameConfig.class_level || 3
+                        })
+                    });
+                } catch (e) {
+                    console.error('Student registration failed:', e);
+                }
+            }
+
+            async loadQuestion() {
+                try {
+                    const response = await fetch('/api/generate_question', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            student_id: this.studentId,
+                            class: this.gameConfig.class_level,
+                            operation: this.gameConfig.math_topic || this.gameConfig.operations?.[0] || 'addition',
+                            game_type: 'quiz'
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.currentQuestion = data.question;
+                        this.displayQuestion();
+                    } else {
+                        // Fallback to local question generation
+                        this.generateLocalQuestion();
+                    }
+
+                } catch (error) {
+                    console.error('Error loading question:', error);
+                    this.generateLocalQuestion();
+                }
+            }
+
+            generateLocalQuestion() {
+                const op = this.gameConfig.math_topic || this.gameConfig.operations?.[0] || 'addition';
+                this.currentQuestion = generateLocalMathQuestion(op, this.gameConfig.difficulty || 'easy');
+                this.displayQuestion();
+            }
+
+            displayQuestion() {
+                const questionText = document.getElementById('questionText');
+                const answerOptions = document.getElementById('answerOptions');
+
+                questionText.textContent = this.currentQuestion.question;
+                answerOptions.innerHTML = '';
+
+                // Use answers array from backend (or local fallback)
+                const answers = this.currentQuestion.answers || [this.currentQuestion.correct_answer, ...(this.currentQuestion.wrong_answers || [])];
+
+                answers.forEach((answer, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'answer-btn';
+                    btn.textContent = answer;
+                    btn.onclick = () => this.checkAnswer(answer, btn);
+                    answerOptions.appendChild(btn);
+                });
+
+                this.isAnswered = false;
+                this.questionStartTime = Date.now();
+                document.getElementById('nextBtn').style.display = 'none';
+                document.getElementById('feedback').style.display = 'none';
+            }
+
+            async checkAnswer(answer, buttonElement) {
+                if (this.isAnswered) return;
+
+                this.isAnswered = true;
+                this.totalAnswered++;
+                const timeTaken = (Date.now() - this.questionStartTime) / 1000;
+
+                // Disable all buttons during processing
+                const allButtons = document.querySelectorAll('.answer-btn');
+                allButtons.forEach(btn => { btn.disabled = true; });
+
+                // If local fallback, check locally
+                if (this.currentQuestion.question_id && this.currentQuestion.question_id.startsWith('local_')) {
+                    const isCorrect = answer === this.currentQuestion.correct_answer;
+                    this._handleResult(isCorrect, answer, buttonElement, this.currentQuestion.correct_answer);
+                    return;
+                }
+
+                // === BACKEND VALIDATION ===
+                try {
+                    const res = await fetch('/api/submit_answer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            student_id: this.studentId,
+                            question_id: this.currentQuestion.question_id,
+                            answer: answer,
+                            time_taken: timeTaken
+                        })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        this._handleResult(data.is_correct, answer, buttonElement, data.correct_answer, data.hint, data.ai_analysis);
+                    } else {
+                        // API error fallback
+                        this.showFeedback('⚠️ Server error. Moving on...', 'error');
+                        document.getElementById('nextBtn').style.display = 'inline-block';
+                    }
+                } catch (e) {
+                    console.error('Submit failed:', e);
+                    this.showFeedback('⚠️ Connection error. Moving on...', 'error');
+                    document.getElementById('nextBtn').style.display = 'inline-block';
+                }
+            }
+
+            _handleResult(isCorrect, answer, buttonElement, correctAnswer, hint = null, aiAnalysis = null) {
+                // Show feedback on all buttons
+                const allButtons = document.querySelectorAll('.answer-btn');
+                allButtons.forEach(btn => {
+                    btn.disabled = true;
+                    if (parseInt(btn.textContent) === correctAnswer || btn.textContent == correctAnswer) {
+                        btn.classList.add('correct');
+                    } else if (btn === buttonElement) {
+                        btn.classList.add('incorrect');
+                    }
+                });
+
+                if (isCorrect) {
+                    this.correctAnswers++;
+                    this.score += 10;
+                    let msg = '✅ Correct! Well done!';
+                    if (aiAnalysis && aiAnalysis.recommendation === 'increase') {
+                        msg += ` 🔥 Difficulty increased to ${aiAnalysis.new_difficulty}!`;
+                    }
+                    this.showFeedback(msg, 'success');
+                } else {
+                    let msg = `❌ Incorrect!`;
+                    if (hint) {
+                        msg += ` ${hint}`;
+                    } else {
+                        msg += ` The correct answer was ${correctAnswer}`;
+                    }
+                    if (aiAnalysis && aiAnalysis.recommendation === 'decrease') {
+                        msg += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
+                    }
+                    this.showFeedback(msg, 'error');
+                }
+
+                this.updateStats();
+
+                // Show next button
+                document.getElementById('nextBtn').style.display = 'inline-block';
+            }
+
+            showFeedback(message, type) {
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = message;
+                feedback.className = `feedback ${type}`;
+                feedback.style.display = 'block';
+            }
+
+            updateStats() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('questionNumber').textContent = `${this.currentQuestionIndex + 1}/${this.totalQuestions}`;
+
+                const accuracy = this.totalAnswered > 0 ?
+                    Math.round((this.correctAnswers / this.totalAnswered) * 100) : 0;
+                document.getElementById('accuracy').textContent = `${accuracy}%`;
+
+                const progress = ((this.currentQuestionIndex + 1) / this.totalQuestions) * 100;
+                document.getElementById('progressBar').style.width = `${progress}%`;
+            }
+
+            async nextQuestion() {
+                this.currentQuestionIndex++;
+
+                if (this.currentQuestionIndex >= this.totalQuestions) {
+                    this.showResults();
+                } else {
+                    await this.loadQuestion();
+                }
+            }
+
+            showResults() {
+                const accuracy = Math.round((this.correctAnswers / this.totalAnswered) * 100);
+                const grade = accuracy >= 90 ? 'A' :
+                    accuracy >= 80 ? 'B' :
+                        accuracy >= 70 ? 'C' :
+                            accuracy >= 60 ? 'D' : 'F';
+
+                const questionCard = document.querySelector('.question-card');
+                questionCard.innerHTML = `
+                    <h2>🎉 Quiz Complete!</h2>
+                    <div style="font-size: 24px; margin: 20px 0;">
+                        <p><strong>Final Score:</strong> ${this.score}</p>
+                        <p><strong>Accuracy:</strong> ${accuracy}%</p>
+                        <p><strong>Grade:</strong> <span style="font-size: 36px; color: ${grade === 'A' ? '#4caf50' : grade === 'F' ? '#f44336' : '#ff9800'}">${grade}</span></p>
+                        <p><strong>Correct Answers:</strong> ${this.correctAnswers}/${this.totalAnswered}</p>
+                    </div>
+                    <button class="btn" onclick="resetQuiz()">Play Again</button>
+                `;
+            }
+
+            resetQuiz() {
+                this.currentQuestionIndex = 0;
+                this.score = 0;
+                this.correctAnswers = 0;
+                this.totalAnswered = 0;
+                this.isAnswered = false;
+
+                this.loadQuestion();
+            }
+        }
+
+        // Global functions
+        let game;
+
+        function nextQuestion() {
+            if (game) game.nextQuestion();
+        }
+
+        function resetQuiz() {
+            if (game) game.resetQuiz();
+        }
+
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new QuizGame();
+        });
+    </script>
+</body>
+
+</html>

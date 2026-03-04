@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Math Learning Game - Complete Working Version</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎮 AI Math Learning Game</h1>
+            <p class="subtitle">Learn Mathematics with Interactive Games</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Student Registration Section -->
+            <section class="registration-section" id="registrationSection">
+                <h2>👤 Student Information</h2>
+                <div class="form-group">
+                    <label for="studentId">Student ID:</label>
+                    <input type="text" id="studentId" placeholder="Enter your student ID">
+                </div>
+                <div class="form-group">
+                    <label for="studentClass">Class:</label>
+                    <select id="studentClass">
+                        <option value="">Select your class</option>
+                        <option value="1">Class 1</option>
+                        <option value="2">Class 2</option>
+                        <option value="3">Class 3</option>
+                        <option value="4">Class 4</option>
+                        <option value="5">Class 5</option>
+                    </select>
+                </div>
+                <button id="registerBtn" class="btn btn-primary">Register & Continue</button>
+                <div id="message" class="message" style="margin-top: 20px; padding: 15px; border-radius: 8px; display: none;"></div>
+            </section>
+
+            <!-- Game Selection Section -->
+            <section class="game-selection" id="gameSelection" style="display: none;">
+                <h2>🎯 Choose Your Game</h2>
+                <div class="game-cards">
+                    <div class="game-card" onclick="selectGameAndTopic('puzzle')">
+                        <div class="game-icon">🧩</div>
+                        <h3>Puzzle Game</h3>
+                        <p>Solve math puzzles by selecting the correct answer from multiple choices</p>
+                        <ul class="game-features">
+                            <li>Multiple choice questions</li>
+                            <li>Hints for wrong answers</li>
+                            <li>Progressive difficulty</li>
+                        </ul>
+                        <button class="btn btn-game">Play Puzzle Game</button>
+                    </div>
+                    
+                    <div class="game-card" onclick="selectGameAndTopic('runner')">
+                        <div class="game-icon">🏃</div>
+                        <h3>Runner Game</h3>
+                        <p>Jump onto correct answer tiles while your character runs automatically</p>
+                        <ul class="game-features">
+                            <li>Fast-paced gameplay</li>
+                            <li>Reflex-based learning</li>
+                            <li>Life system</li>
+                        </ul>
+                        <button class="btn btn-game">Play Runner Game</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Topic Selection Section -->
+            <section class="topic-selection" id="topicSelection" style="display: none;">
+                <h2>📚 Select Math Topic</h2>
+                <div class="topic-grid" id="topicGrid">
+                    <!-- Topics will be loaded dynamically -->
+                </div>
+                <div class="action-buttons">
+                    <button id="backToGamesBtn" class="btn btn-secondary">← Back to Games</button>
+                </div>
+            </section>
+
+            <!-- Game Section -->
+            <section class="game-section" id="gameSection" style="display: none;">
+                <h2 id="gameTitle">🧩 Math Game</h2>
+                <div class="game-container">
+                    <div class="question-card">
+                        <div class="question-header">
+                            <span class="operation-badge" id="operationBadge">Addition</span>
+                            <span class="difficulty-badge" id="difficultyBadge">Easy</span>
+                        </div>
+                        <div class="question-text" id="questionText">Loading question...</div>
+                        <div class="timer">
+                            <span class="timer-icon">⏱️</span>
+                            <span id="timeDisplay">0s</span>
+                        </div>
+                    </div>
+                    
+                    <div class="answers-section">
+                        <div class="answers-grid" id="answersGrid">
+                            <!-- Answers will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="feedback-section" id="feedbackSection" style="display: none;">
+                        <div class="feedback-card">
+                            <div class="feedback-icon" id="feedbackIcon"></div>
+                            <h3 id="feedbackTitle"></h3>
+                            <p id="feedbackMessage"></p>
+                            <div class="hint-box" id="hintBox" style="display: none;">
+                                <h4>💡 Hint:</h4>
+                                <p id="hintText"></p>
+                            </div>
+                            <button class="btn btn-primary" id="nextQuestionBtn">Next Question →</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <button id="pauseBtn" class="btn btn-secondary">⏸️ Pause</button>
+                    <button id="hintBtn" class="btn btn-secondary">💡 Get Hint</button>
+                    <button id="quitBtn" class="btn btn-danger">🏠 Quit Game</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Game State
+        let gameState = {
+            studentId: null,
+            studentClass: null,
+            currentGame: null,
+            currentOperation: null,
+            currentQuestion: null,
+            score: 0,
+            totalQuestions: 0,
+            correctAnswers: 0,
+            questionStartTime: null
+        };
+
+        // UI Helper Functions
+        function showMessage(text, type = 'info') {
+            const messageDiv = document.getElementById('message');
+            if (messageDiv) {
+                messageDiv.textContent = text;
+                messageDiv.className = `message ${type}`;
+                messageDiv.style.display = 'block';
+                
+                if (type === 'success') {
+                    messageDiv.style.background = '#d4edda';
+                    messageDiv.style.color = '#155724';
+                    messageDiv.style.border = '1px solid #c3e6cb';
+                } else if (type === 'error') {
+                    messageDiv.style.background = '#f8d7da';
+                    messageDiv.style.color = '#721c24';
+                    messageDiv.style.border = '1px solid #f5c6cb';
+                }
+            }
+        }
+
+        function hideMessage() {
+            const messageDiv = document.getElementById('message');
+            if (messageDiv) {
+                messageDiv.style.display = 'none';
+            }
+        }
+
+        function showSection(sectionId) {
+            const sections = ['registrationSection', 'gameSelection', 'topicSelection', 'gameSection'];
+            sections.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.style.display = id === sectionId ? 'block' : 'none';
+            });
+        }
+
+        function updateGameStats() {
+            const scoreElement = document.getElementById('score');
+            const accuracyElement = document.getElementById('accuracy');
+            if (scoreElement) scoreElement.textContent = gameState.score;
+            if (accuracyElement) {
+                const accuracy = gameState.totalQuestions > 0 ? 
+                    Math.round((gameState.correctAnswers / gameState.totalQuestions) * 100) : 100;
+                accuracyElement.textContent = `${accuracy}%`;
+            }
+        }
+
+        // API Functions
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (data) options.body = JSON.stringify(data);
+            
+            const response = await fetch(`/api${endpoint}`, options);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        }
+
+        // Registration
+        async function registerStudent() {
+            const studentId = document.getElementById('studentId').value.trim();
+            const studentClass = parseInt(document.getElementById('studentClass').value);
+            
+            if (!studentId || !studentClass) {
+                showMessage('Please enter both Student ID and Class', 'error');
+                return;
+            }
+            
+            try {
+                showMessage('Registering...', 'info');
+                const result = await apiRequest('/register_student', 'POST', {
+                    student_id: studentId,
+                    class: studentClass
+                });
+                
+                if (result.success) {
+                    gameState.studentId = studentId;
+                    gameState.studentClass = studentClass;
+                    showMessage('✅ Registration successful!', 'success');
+                    setTimeout(() => {
+                        hideMessage();
+                        showSection('gameSelection');
+                    }, 1500);
+                } else {
+                    showMessage(`❌ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // Game Selection
+        async function selectGameAndTopic(gameType) {
+            if (!gameState.studentId) {
+                showMessage('Please register first', 'error');
+                return;
+            }
+            
+            gameState.currentGame = gameType;
+            showSection('topicSelection');
+            loadTopics();
+        }
+
+        async function loadTopics() {
+            try {
+                const result = await apiRequest('/get_operations');
+                const operations = result.operations[gameState.studentClass] || 
+                    ['addition', 'subtraction', 'comparison'];
+                
+                const topicGrid = document.getElementById('topicGrid');
+                topicGrid.innerHTML = '';
+                
+                const icons = {
+                    'addition': '➕',
+                    'subtraction': '➖',
+                    'multiplication': '✖️',
+                    'division': '➗',
+                    'comparison': '🔍',
+                    'word_problems': '📝'
+                };
+                
+                const names = {
+                    'addition': 'Addition',
+                    'subtraction': 'Subtraction',
+                    'multiplication': 'Multiplication',
+                    'division': 'Division',
+                    'comparison': 'Number Comparison',
+                    'word_problems': 'Word Problems'
+                };
+                
+                operations.forEach(operation => {
+                    const card = document.createElement('div');
+                    card.className = 'topic-card';
+                    card.innerHTML = `
+                        <div class="topic-icon">${icons[operation] || '📚'}</div>
+                        <div class="topic-name">${names[operation] || operation}</div>
+                        <div class="topic-description">Practice ${names[operation] || operation}</div>
+                    `;
+                    card.onclick = () => startGame(operation);
+                    topicGrid.appendChild(card);
+                });
+                
+            } catch (error) {
+                showMessage('Failed to load topics', 'error');
+            }
+        }
+
+        // Game Functions
+        async function startGame(operation) {
+            gameState.currentOperation = operation;
+            showSection('gameSection');
+            
+            const gameTitle = document.getElementById('gameTitle');
+            const operationBadge = document.getElementById('operationBadge');
+            
+            gameTitle.textContent = gameState.currentGame === 'puzzle' ? '🧩 Math Puzzle Game' : '🏃 Math Runner Game';
+            operationBadge.textContent = operation.charAt(0).toUpperCase() + operation.slice(1);
+            
+            loadQuestion();
+        }
+
+        async function loadQuestion() {
+            try {
+                const result = await apiRequest('/generate_question', 'POST', {
+                    student_id: gameState.studentId,
+                    class: gameState.studentClass,
+                    operation: gameState.currentOperation,
+                    game_type: gameState.currentGame
+                });
+                
+                if (result.success) {
+                    gameState.currentQuestion = result.question;
+                    displayQuestion(result.question);
+                    startTimer();
+                } else {
+                    showMessage('Failed to load question', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error', 'error');
+            }
+        }
+
+        function displayQuestion(questionData) {
+            const questionText = document.getElementById('questionText');
+            const answersGrid = document.getElementById('answersGrid');
+            const difficultyBadge = document.getElementById('difficultyBadge');
+            
+            questionText.textContent = questionData.question;
+            difficultyBadge.textContent = questionData.difficulty.charAt(0).toUpperCase() + questionData.difficulty.slice(1);
+            
+            answersGrid.innerHTML = '';
+            const allAnswers = [questionData.correct_answer, ...questionData.wrong_answers];
+            shuffleArray(allAnswers);
+            
+            allAnswers.forEach(answer => {
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'answer-option';
+                answerDiv.textContent = answer;
+                answerDiv.onclick = () => checkAnswer(answer, questionData);
+                answersGrid.appendChild(answerDiv);
+            });
+            
+            hideFeedback();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        let timerInterval;
+        function startTimer() {
+            gameState.questionStartTime = Date.now();
+            let seconds = 0;
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                seconds++;
+                document.getElementById('timeDisplay').textContent = `${seconds}s`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        async function checkAnswer(selectedAnswer, questionData) {
+            stopTimer();
+            const timeTaken = (Date.now() - gameState.questionStartTime) / 1000;
+            
+            gameState.totalQuestions++;
+            
+            const isCorrect = selectedAnswer === questionData.correct_answer;
+            if (isCorrect) {
+                gameState.correctAnswers++;
+                gameState.score += 10;
+            } else {
+                gameState.score = Math.max(0, gameState.score - 5);
+            }
+            
+            updateGameStats();
+            
+            // Submit answer to backend
+            try {
+                const result = await apiRequest('/submit_answer', 'POST', {
+                    student_id: gameState.studentId,
+                    question_id: questionData.question_id,
+                    answer: selectedAnswer,
+                    time_taken: timeTaken
+                });
+                
+                showFeedback(isCorrect, result.hint, questionData.correct_answer);
+                
+            } catch (error) {
+                console.error('Error submitting answer:', error);
+                showFeedback(isCorrect, 'Try again', questionData.correct_answer);
+            }
+        }
+
+        function showFeedback(isCorrect, hint, correctAnswer) {
+            const feedbackSection = document.getElementById('feedbackSection');
+            const feedbackIcon = document.getElementById('feedbackIcon');
+            const feedbackTitle = document.getElementById('feedbackTitle');
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            const hintText = document.getElementById('hintText');
+            const hintBox = document.getElementById('hintBox');
+            
+            feedbackIcon.textContent = isCorrect ? '✅' : '❌';
+            feedbackTitle.textContent = isCorrect ? 'Correct!' : 'Try Again!';
+            feedbackMessage.textContent = isCorrect ? 
+                'Great job! You got it right!' : 
+                `Not quite right. The correct answer was ${correctAnswer}`;
+            
+            if (hint && !isCorrect) {
+                hintText.textContent = hint;
+                hintBox.style.display = 'block';
+            } else {
+                hintBox.style.display = 'none';
+            }
+            
+            feedbackSection.style.display = 'block';
+            
+            // Disable all answer options
+            document.querySelectorAll('.answer-option').forEach(option => {
+                option.style.pointerEvents = 'none';
+                if (parseInt(option.textContent) === correctAnswer) {
+                    option.classList.add('correct');
+                } else if (parseInt(option.textContent) === parseInt(selectedAnswer)) {
+                    option.classList.add('incorrect');
+                }
+            });
+        }
+
+        function hideFeedback() {
+            const feedbackSection = document.getElementById('feedbackSection');
+            if (feedbackSection) feedbackSection.style.display = 'none';
+        }
+
+        function nextQuestion() {
+            hideFeedback();
+            loadQuestion();
+        }
+
+        // Event Listeners
+        document.getElementById('registerBtn').addEventListener('click', registerStudent);
+        document.getElementById('backToGamesBtn').addEventListener('click', () => showSection('gameSelection'));
+        document.getElementById('nextQuestionBtn').addEventListener('click', nextQuestion);
+        document.getElementById('quitBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to quit?')) {
+                location.reload();
+            }
+        });
+        
+        document.getElementById('hintBtn').addEventListener('click', () => {
+            const hintBox = document.getElementById('hintBox');
+            if (hintBox && hintBox.style.display === 'none') {
+                hintBox.style.display = 'block';
+            }
+        });
+        
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            alert('Game paused! Click OK to continue.');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Puzzle Game</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 80px);
+            grid-template-rows: repeat(5, 80px);
+            gap: 8px;
+            margin: 20px auto;
+            width: fit-content;
+        }
+        
+        .tile {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .tile.locked {
+            background: #f0f0f0;
+            cursor: not-allowed;
+        }
+        
+        .tile.unlocked {
+            background: #e8f5e8;
+            border-color: #4caf50;
+        }
+        
+        .tile.character {
+            background: #ffeb3b;
+            border-color: #f9a825;
+            font-size: 30px;
+        }
+        
+        .tile.goal {
+            background: #ff9800;
+            border-color: #e65100;
+            font-size: 30px;
+        }
+        
+        .tile:hover:not(.locked) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .question-panel {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .question-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .answer-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .answer-btn {
+            padding: 10px 20px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+        
+        .answer-btn:hover {
+            background: #1976d2;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            color: #2196f3;
+        }
+        
+        .feedback {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .feedback.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .feedback.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧩 Math Puzzle Game - Test Version</h1>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Correct</div>
+                <div class="stat-value" id="correct">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Total</div>
+                <div class="stat-value" id="total">0</div>
+            </div>
+        </div>
+        
+        <div class="puzzle-grid" id="puzzleGrid"></div>
+        
+        <div class="question-panel" id="questionPanel" style="display: none;">
+            <div class="question-text" id="questionText"></div>
+            <div class="answer-options" id="answerOptions"></div>
+        </div>
+        
+        <div id="feedback" class="feedback" style="display: none;"></div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="resetGame()" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer;">Reset Game</button>
+        </div>
+    </div>
+
+    <script>
+        class SimplePuzzleGame {
+            constructor() {
+                this.gridSize = 5;
+                this.currentPosition = { x: 0, y: 0 };
+                this.goalPosition = { x: 4, y: 4 };
+                this.score = 0;
+                this.correctAnswers = 0;
+                this.totalQuestions = 0;
+                this.unlockedTiles = new Set(['0-0']);
+                this.currentQuestion = null;
+                this.targetTile = null;
+                
+                this.init();
+            }
+            
+            init() {
+                this.createGrid();
+                this.updateStats();
+            }
+            
+            createGrid() {
+                const grid = document.getElementById('puzzleGrid');
+                grid.innerHTML = '';
+                
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.dataset.x = x;
+                        tile.dataset.y = y;
+                        
+                        const tileKey = `${x}-${y}`;
+                        
+                        if (x === this.currentPosition.x && y === this.currentPosition.y) {
+                            tile.classList.add('character');
+                            tile.textContent = '🤖';
+                        } else if (x === this.goalPosition.x && y === this.goalPosition.y) {
+                            tile.classList.add('goal');
+                            tile.textContent = '🏁';
+                        } else if (this.unlockedTiles.has(tileKey)) {
+                            tile.classList.add('unlocked');
+                            tile.textContent = '✅';
+                        } else {
+                            tile.classList.add('locked');
+                            tile.textContent = '🔒';
+                        }
+                        
+                        tile.addEventListener('click', () => this.handleTileClick(x, y));
+                        grid.appendChild(tile);
+                    }
+                }
+            }
+            
+            handleTileClick(x, y) {
+                // Check if tile is adjacent to current position
+                const dx = Math.abs(x - this.currentPosition.x);
+                const dy = Math.abs(y - this.currentPosition.y);
+                
+                if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                    const tileKey = `${x}-${y}`;
+                    
+                    if (this.unlockedTiles.has(tileKey)) {
+                        // Tile is already unlocked, move character
+                        this.moveCharacter(x, y);
+                    } else {
+                        // Tile is locked, generate question
+                        this.generateQuestion(x, y);
+                    }
+                } else {
+                    this.showFeedback('You can only move to adjacent tiles!', 'error');
+                }
+            }
+            
+            generateQuestion(targetX, targetY) {
+                // Simple question generation for testing
+                const a = Math.floor(Math.random() * 10) + 1;
+                const b = Math.floor(Math.random() * 10) + 1;
+                const correct = a + b;
+                
+                const wrongAnswers = [
+                    correct + 1,
+                    correct - 1,
+                    correct + 2
+                ];
+                
+                const allAnswers = [correct, ...wrongAnswers].sort(() => Math.random() - 0.5);
+                
+                this.currentQuestion = {
+                    question: `What is ${a} + ${b}?`,
+                    correctAnswer: correct,
+                    answers: allAnswers
+                };
+                
+                this.targetTile = { x: targetX, y: targetY };
+                this.displayQuestion();
+            }
+            
+            displayQuestion() {
+                const panel = document.getElementById('questionPanel');
+                const questionText = document.getElementById('questionText');
+                const answerOptions = document.getElementById('answerOptions');
+                
+                questionText.textContent = this.currentQuestion.question;
+                answerOptions.innerHTML = '';
+                
+                this.currentQuestion.answers.forEach(answer => {
+                    const btn = document.createElement('button');
+                    btn.className = 'answer-btn';
+                    btn.textContent = answer;
+                    btn.onclick = () => this.checkAnswer(answer);
+                    answerOptions.appendChild(btn);
+                });
+                
+                panel.style.display = 'block';
+            }
+            
+            checkAnswer(answer) {
+                this.totalQuestions++;
+                
+                if (answer === this.currentQuestion.correctAnswer) {
+                    this.correctAnswers++;
+                    this.score += 10;
+                    this.showFeedback('Correct! Tile unlocked!', 'success');
+                    
+                    // Unlock the target tile
+                    const tileKey = `${this.targetTile.x}-${this.targetTile.y}`;
+                    this.unlockedTiles.add(tileKey);
+                    
+                    // Move character to the unlocked tile
+                    this.moveCharacter(this.targetTile.x, this.targetTile.y);
+                    
+                    // Check for victory
+                    if (this.currentPosition.x === this.goalPosition.x && 
+                        this.currentPosition.y === this.goalPosition.y) {
+                        this.showVictory();
+                    }
+                } else {
+                    this.showFeedback(`Wrong! The correct answer was ${this.currentQuestion.correctAnswer}`, 'error');
+                    this.score = Math.max(0, this.score - 5);
+                }
+                
+                this.updateStats();
+                document.getElementById('questionPanel').style.display = 'none';
+            }
+            
+            moveCharacter(x, y) {
+                this.currentPosition = { x, y };
+                this.createGrid();
+            }
+            
+            showFeedback(message, type) {
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = message;
+                feedback.className = `feedback ${type}`;
+                feedback.style.display = 'block';
+                
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 3000);
+            }
+            
+            updateStats() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('correct').textContent = this.correctAnswers;
+                document.getElementById('total').textContent = this.totalQuestions;
+            }
+            
+            showVictory() {
+                this.showFeedback('🎉 Victory! You reached the goal!', 'success');
+                setTimeout(() => {
+                    if (confirm('Congratulations! You won! Play again?')) {
+                        this.resetGame();
+                    }
+                }, 1000);
+            }
+            
+            resetGame() {
+                this.currentPosition = { x: 0, y: 0 };
+                this.score = 0;
+                this.correctAnswers = 0;
+                this.totalQuestions = 0;
+                this.unlockedTiles = new Set(['0-0']);
+                this.currentQuestion = null;
+                this.targetTile = null;
+                
+                document.getElementById('questionPanel').style.display = 'none';
+                document.getElementById('feedback').style.display = 'none';
+                
+                this.createGrid();
+                this.updateStats();
+            }
+        }
+        
+        // Global functions
+        let game;
+        
+        function resetGame() {
+            if (game) game.resetGame();
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new SimplePuzzleGame();
+        });
+    </script>
+</body>
+</html>

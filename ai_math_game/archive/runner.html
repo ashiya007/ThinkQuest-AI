@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runner Game - AI Math Learning</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Game Header -->
+        <header class="game-header">
+            <div class="game-info">
+                <h1>🏃 Math Runner Game</h1>
+                <div class="student-info">
+                    <span id="studentIdDisplay"></span>
+                    <span id="classDisplay"></span>
+                </div>
+            </div>
+            <div class="game-stats">
+                <div class="stat">
+                    <span class="stat-label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Lives:</span>
+                    <span id="lives">❤️❤️❤️</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Speed:</span>
+                    <span id="speed">1x</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Game Canvas Area -->
+        <main class="game-main">
+            <div class="game-canvas-container">
+                <canvas id="gameCanvas" width="800" height="400"></canvas>
+                
+                <!-- Game Question Overlay -->
+                <div class="question-overlay" id="questionOverlay">
+                    <div class="question-card">
+                        <div class="question-header">
+                            <span class="operation-badge" id="operationBadge">Addition</span>
+                            <span class="difficulty-badge" id="difficultyBadge">Easy</span>
+                        </div>
+                        <div class="question-text" id="questionText">
+                            Get ready!
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Status Overlay -->
+                <div class="status-overlay" id="statusOverlay" style="display: none;">
+                    <div class="status-card">
+                        <div class="status-icon" id="statusIcon"></div>
+                        <h3 id="statusTitle"></h3>
+                        <p id="statusMessage"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="game-instructions">
+                <h3>How to Play:</h3>
+                <ul>
+                    <li>Press <strong>SPACE</strong> or <strong>CLICK</strong> to jump</li>
+                    <li>Jump onto the <strong>correct answer tiles</strong></li>
+                    <li>Avoid <strong>wrong answer tiles</strong></li>
+                    <li>Collect coins for bonus points</li>
+                    <li>Speed increases as you progress!</li>
+                </ul>
+            </div>
+        </main>
+
+        <!-- Game Controls -->
+        <footer class="game-controls">
+            <button class="btn btn-primary" id="startBtn">🎮 Start Game</button>
+            <button class="btn btn-secondary" id="pauseBtn" style="display: none;">⏸️ Pause</button>
+            <button class="btn btn-danger" id="quitBtn">🏠 Quit Game</button>
+        </footer>
+
+        <!-- Pause Overlay -->
+        <div class="pause-overlay" id="pauseOverlay" style="display: none;">
+            <div class="pause-content">
+                <h2>⏸️ Game Paused</h2>
+                <p>Take a break! Your progress is saved.</p>
+                <div class="pause-buttons">
+                    <button class="btn btn-primary" id="resumeBtn">▶️ Resume</button>
+                    <button class="btn btn-secondary" id="quitFromPauseBtn">🏠 Quit Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div class="game-over-overlay" id="gameOverOverlay" style="display: none;">
+            <div class="game-over-content">
+                <h2 id="gameOverTitle">🎮 Game Over!</h2>
+                <div class="final-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="finalScore">0</span>
+                        <span class="stat-name">Final Score</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="correctAnswers">0</span>
+                        <span class="stat-name">Correct Answers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="totalTime">0s</span>
+                        <span class="stat-name">Time Survived</span>
+                    </div>
+                </div>
+                <div class="performance-message" id="performanceMessage"></div>
+                <div class="game-over-buttons">
+                    <button class="btn btn-primary" id="playAgainBtn">🔄 Play Again</button>
+                    <button class="btn btn-secondary" id="viewReportBtn">📊 View Report</button>
+                    <button class="btn btn-secondary" id="homeBtn">🏠 Home</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <p>Starting game...</p>
+        </div>
+
+        <!-- Message Modal -->
+        <div class="modal" id="messageModal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3 id="modalTitle">Message</h3>
+                <p id="modalMessage"></p>
+                <button class="btn btn-primary" id="modalOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

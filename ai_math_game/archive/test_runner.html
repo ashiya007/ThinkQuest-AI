@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Runner Game</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        .game-area {
+            text-align: center;
+        }
+        
+        canvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            background: linear-gradient(to bottom, #87ceeb, #98fb98);
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            margin: 0 10px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            color: #2196f3;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .feedback {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .feedback.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .feedback.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃 Math Runner Game - Test Version</h1>
+        
+        <div class="instructions">
+            <strong>How to Play:</strong> Press SPACE or click the canvas to jump. Jump on green platforms (correct answers) and avoid red platforms (wrong answers)!
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Lives</div>
+                <div class="stat-value" id="lives">3</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Distance</div>
+                <div class="stat-value" id="distance">0m</div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
+            
+            <div class="controls">
+                <button class="btn" id="startBtn" onclick="startGame()">Start Game</button>
+                <button class="btn" id="pauseBtn" onclick="pauseGame()" disabled>Pause</button>
+                <button class="btn" onclick="resetGame()">Reset</button>
+            </div>
+        </div>
+        
+        <div id="feedback" class="feedback" style="display: none;"></div>
+    </div>
+
+    <script>
+        class SimpleRunnerGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Game state
+                this.isRunning = false;
+                this.isPaused = false;
+                this.gameOver = false;
+                this.score = 0;
+                this.lives = 3;
+                this.distance = 0;
+                
+                // Player
+                this.player = {
+                    x: 100,
+                    y: 300,
+                    width: 40,
+                    height: 40,
+                    velocityY: 0,
+                    jumping: false,
+                    grounded: false
+                };
+                
+                // Physics
+                this.gravity = 0.8;
+                this.jumpPower = -15;
+                this.gameSpeed = 3;
+                
+                // Platforms
+                this.platforms = [];
+                this.platformSpacing = 200;
+                this.lastPlatformX = 400;
+                
+                // Ground
+                this.groundY = 340;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.generateInitialPlatforms();
+                this.gameLoop();
+            }
+            
+            setupEventListeners() {
+                // Keyboard controls
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' && this.isRunning && !this.isPaused) {
+                        e.preventDefault();
+                        this.jump();
+                    }
+                });
+                
+                // Touch/click controls
+                this.canvas.addEventListener('click', () => {
+                    if (this.isRunning && !this.isPaused) {
+                        this.jump();
+                    }
+                });
+            }
+            
+            jump() {
+                if (this.player.grounded && !this.player.jumping) {
+                    this.player.velocityY = this.jumpPower;
+                    this.player.jumping = true;
+                    this.player.grounded = false;
+                }
+            }
+            
+            startGame() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.isPaused = false;
+                this.gameOver = false;
+                this.score = 0;
+                this.lives = 3;
+                this.distance = 0;
+                this.gameSpeed = 3;
+                
+                // Reset player
+                this.player.x = 100;
+                this.player.y = 300;
+                this.player.velocityY = 0;
+                this.player.jumping = false;
+                this.player.grounded = false;
+                
+                // Reset platforms
+                this.platforms = [];
+                this.lastPlatformX = 400;
+                this.generateInitialPlatforms();
+                
+                // Update UI
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                this.updateStats();
+            }
+            
+            pauseGame() {
+                if (!this.isRunning || this.gameOver) return;
+                this.isPaused = !this.isPaused;
+                document.getElementById('pauseBtn').textContent = this.isPaused ? 'Resume' : 'Pause';
+            }
+            
+            resetGame() {
+                this.isRunning = false;
+                this.isPaused = false;
+                this.gameOver = false;
+                
+                this.score = 0;
+                this.lives = 3;
+                this.distance = 0;
+                
+                // Reset player
+                this.player.x = 100;
+                this.player.y = 300;
+                this.player.velocityY = 0;
+                this.player.jumping = false;
+                this.player.grounded = false;
+                
+                // Reset platforms
+                this.platforms = [];
+                this.generateInitialPlatforms();
+                
+                // Update UI
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('pauseBtn').textContent = 'Pause';
+                this.updateStats();
+                this.hideFeedback();
+            }
+            
+            generateInitialPlatforms() {
+                // Starting platform
+                this.platforms.push({
+                    x: 50,
+                    y: this.groundY,
+                    width: 150,
+                    height: 20,
+                    isCorrect: true,
+                    answer: null
+                });
+                
+                // Generate some platforms
+                for (let i = 0; i < 5; i++) {
+                    const isCorrect = Math.random() < 0.7; // 70% chance of correct
+                    const answer = isCorrect ? '✓' : '✗';
+                    
+                    this.platforms.push({
+                        x: 250 + i * 200,
+                        y: this.groundY - Math.random() * 50,
+                        width: 120,
+                        height: 20,
+                        isCorrect: isCorrect,
+                        answer: answer
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.isRunning || this.isPaused || this.gameOver) return;
+                
+                // Update player physics
+                this.player.velocityY += this.gravity;
+                this.player.y += this.player.velocityY;
+                
+                // Ground collision
+                if (this.player.y + this.player.height >= this.groundY) {
+                    this.player.y = this.groundY - this.player.height;
+                    this.player.velocityY = 0;
+                    this.player.grounded = true;
+                    this.player.jumping = false;
+                }
+                
+                // Update platforms
+                for (let i = this.platforms.length - 1; i >= 0; i--) {
+                    const platform = this.platforms[i];
+                    platform.x -= this.gameSpeed;
+                    
+                    // Remove off-screen platforms
+                    if (platform.x + platform.width < 0) {
+                        this.platforms.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Check collision with player
+                    if (this.checkCollision(this.player, platform)) {
+                        if (platform.answer !== null) {
+                            if (platform.isCorrect) {
+                                this.score += 10;
+                                this.showFeedback('Correct! +10 points', 'success');
+                            } else {
+                                this.lives--;
+                                this.score = Math.max(0, this.score - 5);
+                                this.showFeedback('Wrong platform! -1 life', 'error');
+                                
+                                if (this.lives <= 0) {
+                                    this.endGame();
+                                    return;
+                                }
+                            }
+                            this.updateStats();
+                        }
+                        
+                        // Land on platform
+                        if (this.player.velocityY > 0 && this.player.y < platform.y) {
+                            this.player.y = platform.y - this.player.height;
+                            this.player.velocityY = 0;
+                            this.player.grounded = true;
+                            this.player.jumping = false;
+                        }
+                    }
+                }
+                
+                // Update distance
+                this.distance += this.gameSpeed / 10;
+                
+                // Generate new platforms
+                if (this.platforms.length < 5) {
+                    const isCorrect = Math.random() < 0.7;
+                    const answer = isCorrect ? '✓' : '✗';
+                    
+                    this.platforms.push({
+                        x: this.canvas.width + Math.random() * 200,
+                        y: this.groundY - Math.random() * 100,
+                        width: 120,
+                        height: 20,
+                        isCorrect: isCorrect,
+                        answer: answer
+                    });
+                }
+                
+                // Check if player fell off
+                if (this.player.y > this.canvas.height) {
+                    this.lives--;
+                    this.updateStats();
+                    
+                    if (this.lives <= 0) {
+                        this.endGame();
+                    } else {
+                        // Reset player position
+                        this.player.x = 100;
+                        this.player.y = 300;
+                        this.player.velocityY = 0;
+                        this.showFeedback(`You fell! ${this.lives} lives remaining`, 'error');
+                    }
+                }
+                
+                this.updateStats();
+            }
+            
+            checkCollision(player, platform) {
+                return player.x < platform.x + platform.width &&
+                       player.x + player.width > platform.x &&
+                       player.y < platform.y + platform.height &&
+                       player.y + player.height > platform.y;
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw sky gradient
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#87ceeb');
+                gradient.addColorStop(1, '#98fb98');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw ground
+                this.ctx.fillStyle = '#8b7355';
+                this.ctx.fillRect(0, this.groundY + 20, this.canvas.width, this.canvas.height - this.groundY - 20);
+                
+                // Draw platforms
+                this.platforms.forEach(platform => {
+                    this.ctx.fillStyle = platform.isCorrect ? '#48bb78' : '#f56565';
+                    this.ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    
+                    // Draw answer text
+                    if (platform.answer !== null) {
+                        this.ctx.fillStyle = 'white';
+                        this.ctx.font = 'bold 16px Arial';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.fillText(platform.answer, platform.x + platform.width/2, platform.y + platform.height/2 + 5);
+                    }
+                });
+                
+                // Draw player
+                this.ctx.fillStyle = '#f6ad55';
+                this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
+                
+                // Draw player face
+                this.ctx.fillStyle = 'white';
+                this.ctx.fillRect(this.player.x + 8, this.player.y + 8, 8, 8);
+                this.ctx.fillRect(this.player.x + 24, this.player.y + 8, 8, 8);
+                this.ctx.fillRect(this.player.x + 12, this.player.y + 24, 16, 4);
+                
+                // Draw game state text
+                if (!this.isRunning && !this.gameOver) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 32px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('Press Start to Begin!', this.canvas.width/2, this.canvas.height/2);
+                }
+                
+                if (this.isPaused && !this.gameOver) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 32px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('PAUSED', this.canvas.width/2, this.canvas.height/2);
+                }
+            }
+            
+            gameLoop() {
+                this.update();
+                this.render();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+            
+            updateStats() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('lives').textContent = this.lives;
+                document.getElementById('distance').textContent = `${Math.floor(this.distance)}m`;
+            }
+            
+            endGame() {
+                this.gameOver = true;
+                this.isRunning = false;
+                
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = 'bold 48px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('GAME OVER', this.canvas.width/2, this.canvas.height/2 - 50);
+                
+                this.ctx.font = 'bold 24px Arial';
+                this.ctx.fillText(`Final Score: ${this.score}`, this.canvas.width/2, this.canvas.height/2 + 10);
+                this.ctx.fillText(`Distance: ${Math.floor(this.distance)}m`, this.canvas.width/2, this.canvas.height/2 + 40);
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+            }
+            
+            showFeedback(message, type) {
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = message;
+                feedback.className = `feedback ${type}`;
+                feedback.style.display = 'block';
+                
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 2000);
+            }
+            
+            hideFeedback() {
+                document.getElementById('feedback').style.display = 'none';
+            }
+        }
+        
+        // Global functions
+        let game;
+        
+        function startGame() {
+            if (game) game.startGame();
+        }
+        
+        function pauseGame() {
+            if (game) game.pauseGame();
+        }
+        
+        function resetGame() {
+            if (game) game.resetGame();
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new SimpleRunnerGame();
+        });
+    </script>
+</body>
+</html>

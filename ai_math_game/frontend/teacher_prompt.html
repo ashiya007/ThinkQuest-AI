@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThinkQuest AI - Teacher Orchestrator</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --dark: #2d3748;
+            --light: #f7fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .orchestrator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 1024px) {
+            .orchestrator-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .panel h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 20px 0;
+            color: var(--dark);
+            font-size: 1.4rem;
+        }
+
+        .panel-subtitle {
+            color: #718096;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .prompt-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #38a169, #48bb78);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+        }
+
+        .config-display {
+            background: #1a202c;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .config-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .config-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            background: #2d3748;
+            color: #a0aec0;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .config-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .config-content {
+            display: none;
+        }
+
+        .config-content.active {
+            display: block;
+        }
+
+        .json-viewer {
+            color: #68d391;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .visual-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .preview-item {
+            text-align: center;
+            padding: 15px;
+            background: #2d3748;
+            border-radius: 10px;
+        }
+
+        .preview-item .emoji {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .preview-item .label {
+            font-size: 11px;
+            color: #a0aec0;
+            text-transform: uppercase;
+        }
+
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            margin: 0 auto 8px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+        }
+
+        .session-card {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .session-code {
+            font-size: 2.5rem;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-align: center;
+            margin: 15px 0;
+            font-family: monospace;
+        }
+
+        .session-url {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .session-url:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .example-prompts {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .example-prompt {
+            padding: 12px 16px;
+            background: #f7fafc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .example-prompt:hover {
+            background: #edf2f7;
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .student-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .student-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-primary {
+            background: #ebf4ff;
+            color: #5a67d8;
+        }
+
+        .badge-success {
+            background: #c6f6d5;
+            color: #276749;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .operations-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .op-badge {
+            background: var(--primary);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🧠 ThinkQuest AI Orchestrator</h1>
+            <p class="subtitle">Define learning environments with natural language. Launch sessions for your students.
+            </p>
+        </header>
+
+        <div class="orchestrator-grid">
+            <!-- Left Panel: Prompt Input & Configuration -->
+            <div class="panel">
+                <h2>📝 Define Learning Environment</h2>
+                <p class="panel-subtitle">Describe your ideal lesson. The AI will architect a complete game
+                    configuration.</p>
+
+                <textarea id="promptInput" class="prompt-input"
+                    placeholder="Example: 3rd Grade Division in a Space theme with fast gameplay and 10 questions"></textarea>
+
+                <div style="margin-top: 15px;">
+                    <button id="generateBtn" onclick="generateConfiguration()" class="btn btn-primary"
+                        style="width: 100%;">
+                        🚀 Generate Configuration
+                    </button>
+                </div>
+
+                <!-- Configuration Display -->
+                <div id="configDisplay" class="config-display">
+                    <div class="config-tabs">
+                        <div class="config-tab active" onclick="switchTab('schema')">Schema</div>
+                        <div class="config-tab" onclick="switchTab('visual')">Visual Assets</div>
+                        <div class="config-tab" onclick="switchTab('speed')">Speed Config</div>
+                    </div>
+
+                    <div id="schemaContent" class="config-content active">
+                        <pre id="jsonViewer" class="json-viewer"></pre>
+                    </div>
+
+                    <div id="visualContent" class="config-content">
+                        <div id="visualPreview" class="visual-preview"></div>
+                    </div>
+
+                    <div id="speedContent" class="config-content">
+                        <div id="speedPreview" class="visual-preview"></div>
+                    </div>
+
+                    <div id="operationsBadges" class="operations-badges"></div>
+
+                    <div class="action-buttons">
+                        <button onclick="launchSession()" class="btn btn-success">
+                            🎯 Launch Session
+                        </button>
+                        <button onclick="testGame()" class="btn btn-primary">
+                            🎮 Quick Test
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Session Card -->
+                <div id="sessionCard" class="session-card">
+                    <h3 style="margin: 0 0 10px 0;">✅ Session Created!</h3>
+                    <p style="opacity: 0.9; margin-bottom: 15px;">Share this code with your students:</p>
+                    <div id="sessionCode" class="session-code">ABC123</div>
+                    <div id="sessionUrl" class="session-url" onclick="copySessionUrl()">
+                        Click to copy join URL
+                    </div>
+                </div>
+
+                <!-- Example Prompts -->
+                <div style="margin-top: 25px;">
+                    <h3 style="margin-bottom: 10px;">💡 Example Prompts</h3>
+                    <div id="exampleContainer" class="example-prompts"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Active Sessions & Analytics -->
+            <div class="panel">
+                <h2>📊 Session Monitor</h2>
+
+                <div id="noActiveSession" style="text-align: center; padding: 40px; color: #718096;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🎮</div>
+                    <p>No active session. Launch one to see live student stats.</p>
+                </div>
+
+                <div id="activeSessionPanel" style="display: none;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div id="statStudents" class="stat-value">0</div>
+                            <div class="stat-label">Students</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="statQuestions" class="stat-value">0</div>
+                            <div class="stat-label">Questions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="statAccuracy" class="stat-value">0%</div>
+                            <div class="stat-label">Avg Accuracy</div>
+                        </div>
+                    </div>
+
+                    <h3>👥 Connected Students</h3>
+                    <div id="studentList" class="student-list">
+                        <p style="color: #718096; text-align: center;">Waiting for students to join...</p>
+                    </div>
+
+                    <button onclick="endSession()" class="btn"
+                        style="width: 100%; margin-top: 20px; background: var(--danger); color: white;">
+                        🛑 End Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentConfig = null;
+        let activeSessionId = null;
+        let pollInterval = null;
+
+        async function loadExamples() {
+            try {
+                const res = await fetch('/api/get_prompt_examples');
+                const data = await res.json();
+                const container = document.getElementById('exampleContainer');
+                container.innerHTML = '';
+
+                data.examples.forEach(text => {
+                    const div = document.createElement('div');
+                    div.className = 'example-prompt';
+                    div.textContent = text;
+                    div.onclick = () => {
+                        document.getElementById('promptInput').value = text;
+                        document.getElementById('promptInput').focus();
+                    };
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                console.error("Failed to load examples:", e);
+            }
+        }
+
+        async function generateConfiguration() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            const btn = document.getElementById('generateBtn');
+
+            if (!prompt) {
+                alert('Please enter a prompt describing your lesson.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> AI is architecting...';
+
+            try {
+                const res = await fetch('/api/parse_prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    currentConfig = data.game_config;
+                    displayConfiguration(currentConfig);
+                    document.getElementById('configDisplay').style.display = 'block';
+                    document.getElementById('sessionCard').style.display = 'none';
+                } else {
+                    alert('Failed to generate configuration: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Generation error:', e);
+                alert('Failed to connect to the server.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Generate Configuration';
+            }
+        }
+
+        function displayConfiguration(config) {
+            // Display JSON schema
+            const cleanConfig = { ...config };
+            delete cleanConfig.visual_assets;
+            delete cleanConfig.speed_config;
+            document.getElementById('jsonViewer').textContent = JSON.stringify(cleanConfig, null, 2);
+
+            // Display visual assets
+            if (config.visual_assets) {
+                const va = config.visual_assets;
+                document.getElementById('visualPreview').innerHTML = `
+                    <div class="preview-item">
+                        <div class="color-swatch" style="background: ${va.primary_color}"></div>
+                        <div class="label">Primary</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="color-swatch" style="background: ${va.accent_color}"></div>
+                        <div class="label">Accent</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="color-swatch" style="background: ${va.highlight_color}"></div>
+                        <div class="label">Highlight</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="emoji">${va.character_emoji}</div>
+                        <div class="label">Character</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="emoji">${va.goal_emoji}</div>
+                        <div class="label">Goal</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="emoji">${va.correct_emoji}</div>
+                        <div class="label">Correct</div>
+                    </div>
+                `;
+            }
+
+            // Display speed config
+            if (config.speed_config) {
+                const sc = config.speed_config;
+                document.getElementById('speedPreview').innerHTML = `
+                    <div class="preview-item">
+                        <div class="emoji">⚡</div>
+                        <div style="color: white; font-size: 1.2rem;">${sc.platform_speed}</div>
+                        <div class="label">Speed</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="emoji">⏱️</div>
+                        <div style="color: white; font-size: 1.2rem;">${sc.question_time_limit}s</div>
+                        <div class="label">Time Limit</div>
+                    </div>
+                    <div class="preview-item">
+                        <div class="emoji">🔄</div>
+                        <div style="color: white; font-size: 1.2rem;">${sc.spawn_interval}ms</div>
+                        <div class="label">Spawn Rate</div>
+                    </div>
+                `;
+            }
+
+            // Display operations badges
+            if (config.operations && Array.isArray(config.operations)) {
+                document.getElementById('operationsBadges').innerHTML = config.operations
+                    .map(op => `<span class="op-badge">${op}</span>`)
+                    .join('');
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.config-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tab + 'Content').classList.add('active');
+        }
+
+        async function launchSession() {
+            if (!currentConfig) {
+                alert('Generate a configuration first.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_config: currentConfig })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    activeSessionId = data.session_id;
+
+                    // Show session card
+                    document.getElementById('sessionCode').textContent = data.session_id;
+                    document.getElementById('sessionUrl').textContent = window.location.origin + data.join_url;
+                    document.getElementById('sessionCard').style.display = 'block';
+
+                    // Show session monitor
+                    document.getElementById('noActiveSession').style.display = 'none';
+                    document.getElementById('activeSessionPanel').style.display = 'block';
+
+                    // Start polling for stats
+                    startPolling();
+                } else {
+                    alert('Failed to create session: ' + data.error);
+                }
+            } catch (e) {
+                console.error('Session creation error:', e);
+                alert('Failed to create session.');
+            }
+        }
+
+        function testGame() {
+            if (!currentConfig) {
+                alert('Generate a configuration first.');
+                return;
+            }
+
+            sessionStorage.setItem('gameConfig', JSON.stringify(currentConfig));
+
+            const gameType = currentConfig.game_type || 'puzzle';
+            if (gameType === 'runner') {
+                window.open('/runner_game.html', '_blank');
+            } else if (gameType === 'shooter') {
+                window.open('/alien_blaster.html', '_blank');
+            } else if (gameType === 'quiz') {
+                window.open('/quiz_game.html', '_blank');
+            } else if (gameType === 'kangaroo') {
+                window.open('/kang.html', '_blank');
+            } else {
+                window.open('/puzzle_game.html', '_blank');
+            }
+        }
+
+        function copySessionUrl() {
+            const url = document.getElementById('sessionUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                const el = document.getElementById('sessionUrl');
+                const original = el.textContent;
+                el.textContent = '✓ Copied!';
+                setTimeout(() => el.textContent = original, 2000);
+            });
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+
+            pollInterval = setInterval(async () => {
+                if (!activeSessionId) return;
+
+                try {
+                    const res = await fetch(`/api/session_stats/${activeSessionId}`);
+                    const data = await res.json();
+
+                    if (data.success) {
+                        document.getElementById('statStudents').textContent = data.student_count;
+                        document.getElementById('statQuestions').textContent = data.questions_served;
+
+                        // Calculate average accuracy
+                        if (data.students && data.students.length > 0) {
+                            const avgAcc = data.students.reduce((sum, s) => sum + s.accuracy, 0) / data.students.length;
+                            document.getElementById('statAccuracy').textContent = Math.round(avgAcc) + '%';
+
+                            // Update student list
+                            const listHtml = data.students.map(s => `
+                                <div class="student-item">
+                                    <span>${s.student_id}</span>
+                                    <span class="badge badge-success">${s.accuracy}% (${s.questions_answered} Q)</span>
+                                </div>
+                            `).join('');
+                            document.getElementById('studentList').innerHTML = listHtml || '<p style="color: #718096; text-align: center;">Waiting for students...</p>';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Polling error:', e);
+                }
+            }, 3000);
+        }
+
+        async function endSession() {
+            if (!activeSessionId) return;
+
+            if (!confirm('End this session? Students will be disconnected.')) return;
+
+            try {
+                await fetch(`/api/end_session/${activeSessionId}`, { method: 'POST' });
+
+                activeSessionId = null;
+                if (pollInterval) clearInterval(pollInterval);
+
+                document.getElementById('activeSessionPanel').style.display = 'none';
+                document.getElementById('noActiveSession').style.display = 'block';
+                document.getElementById('sessionCard').style.display = 'none';
+
+            } catch (e) {
+                console.error('End session error:', e);
+            }
+        }
+
+        // Initialize
+        window.onload = loadExamples;
+    </script>
+</body>
+
+</html>

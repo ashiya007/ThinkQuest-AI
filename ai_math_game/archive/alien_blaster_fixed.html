@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛸 Alien Math Blaster - Fixed Version</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            color: white;
+        }
+        
+        .game-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .game-area {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            background: linear-gradient(to bottom, #000428, #1a237e);
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            margin: 0 10px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            color: #2196f3;
+            font-weight: bold;
+        }
+        
+        .target-display {
+            background: #28a745;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .game-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .feedback {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .feedback.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .feedback.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🛸 Alien Math Blaster</h1>
+            <p>Shoot aliens whose math expressions equal the target number!</p>
+        </div>
+        
+        <div class="target-display">
+            Target: <span id="targetNumber">7</span>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Lives</div>
+                <div class="stat-value" id="lives">3</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Wave</div>
+                <div class="stat-value" id="wave">1</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value" id="accuracy">100%</div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="900" height="500"></canvas>
+            
+            <div class="controls">
+                <button class="btn" id="startBtn" onclick="startGame()">Start Game</button>
+                <button class="btn" id="pauseBtn" onclick="pauseGame()" disabled>Pause</button>
+                <button class="btn" onclick="resetGame()">Reset</button>
+            </div>
+        </div>
+        
+        <div class="game-info">
+            <strong>How to Play:</strong> Use arrow keys to move your laser cannon. Press spacebar to shoot aliens. 
+            Match the alien's expression to the target number!
+        </div>
+        
+        <div id="feedback" class="feedback"></div>
+    </div>
+
+    <script>
+        class AlienBlasterGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Game state
+                this.isRunning = false;
+                this.isPaused = false;
+                this.gameOver = false;
+                this.score = 0;
+                this.lives = 3;
+                this.wave = 1;
+                this.shotsFired = 0;
+                this.shotsHit = 0;
+                this.missCount = 0;
+                this.gameTimer = 0;
+                this.lastCorrectShot = Date.now();
+                this.comboMultiplier = 1;
+                
+                // Player cannon
+                this.cannon = {
+                    x: 450,
+                    y: 450,
+                    width: 40,
+                    height: 20,
+                    speed: 10
+                };
+                
+                // Game elements
+                this.aliens = [];
+                this.lasers = [];
+                this.explosions = [];
+                this.targetNumber = 7;
+                this.alienSpawnTimer = 0;
+                this.alienSpawnInterval = 120;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.generateNewTarget();
+                this.gameLoop();
+            }
+            
+            setupEventListeners() {
+                // Keyboard controls
+                document.addEventListener('keydown', (e) => {
+                    if (!this.isRunning || this.isPaused || this.gameOver) return;
+                    
+                    switch(e.key) {
+                        case 'ArrowLeft':
+                            this.cannon.x = Math.max(30, this.cannon.x - this.cannon.speed);
+                            break;
+                        case 'ArrowRight':
+                            this.cannon.x = Math.min(this.canvas.width - 30, this.cannon.x + this.cannon.speed);
+                            break;
+                        case ' ':
+                            e.preventDefault();
+                            this.fireLaser();
+                            break;
+                    }
+                });
+                
+                // Mouse controls
+                this.canvas.addEventListener('click', (e) => {
+                    if (!this.isRunning || this.isPaused || this.gameOver) return;
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.cannon.x = e.clientX - rect.left;
+                    this.fireLaser();
+                });
+            }
+            
+            generateNewTarget() {
+                // Generate target number based on difficulty
+                const max = 20;
+                this.targetNumber = Math.floor(Math.random() * max) + 1;
+                document.getElementById('targetNumber').textContent = this.targetNumber;
+            }
+            
+            generateAlienExpression() {
+                // Generate simple math expressions
+                const operations = ['+', '-'];
+                const op = operations[Math.floor(Math.random() * operations.length)];
+                
+                let a, b;
+                if (op === '+') {
+                    a = Math.floor(Math.random() * this.targetNumber);
+                    b = this.targetNumber - a;
+                } else {
+                    a = this.targetNumber + Math.floor(Math.random() * 5) + 1;
+                    b = a - this.targetNumber;
+                }
+                
+                return `${a} ${op} ${b}`;
+            }
+            
+            spawnAlien() {
+                const expression = this.generateAlienExpression();
+                const isCorrect = this.evaluateExpression(expression);
+                
+                this.aliens.push({
+                    x: -60,
+                    y: 30 + Math.random() * 150, // Spread across top area
+                    width: 50,
+                    height: 30,
+                    speed: 1.5 + Math.random() * 1.5,
+                    expression: expression,
+                    isCorrect: isCorrect,
+                    color: isCorrect ? '#4caf50' : '#f44336'
+                });
+            }
+            
+            fireLaser() {
+                this.lasers.push({
+                    x: this.cannon.x,
+                    y: this.cannon.y - 20,
+                    width: 4,
+                    height: 15,
+                    speed: 12
+                });
+                this.shotsFired++;
+            }
+            
+            updateLasers() {
+                for (let i = this.lasers.length - 1; i >= 0; i--) {
+                    const laser = this.lasers[i];
+                    laser.y -= laser.speed;
+                    
+                    if (laser.y < 0) {
+                        this.lasers.splice(i, 1);
+                    }
+                }
+            }
+            
+            updateAliens() {
+                for (let i = this.aliens.length - 1; i >= 0; i--) {
+                    const alien = this.aliens[i];
+                    alien.x += alien.speed;
+                    alien.y += Math.sin(Date.now() / 1000) * 2; // Slight wave motion
+                    
+                    // Remove aliens that go off screen
+                    if (alien.x > this.canvas.width + 100 || alien.y > this.canvas.height + 100) {
+                        this.aliens.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Check collision with lasers
+                    for (let j = this.lasers.length - 1; j >= 0; j--) {
+                        const laser = this.lasers[j];
+                        
+                        if (this.checkCollision(laser, alien)) {
+                            this.createExplosion(alien.x + alien.width/2, alien.y + alien.height/2);
+                            
+                            if (alien.isCorrect) {
+                                // Calculate time bonus for fast shooting
+                                const timeSinceLastShot = (Date.now() - this.lastCorrectShot) / 1000;
+                                const timeBonus = Math.max(1, 5 - timeSinceLastShot); // Bonus for speed
+                                const points = Math.round(10 * this.comboMultiplier * timeBonus);
+                                
+                                this.score += points;
+                                this.shotsHit++;
+                                this.lastCorrectShot = Date.now();
+                                this.comboMultiplier = Math.min(this.comboMultiplier + 0.5, 5); // Max 5x multiplier
+                                
+                                this.showFeedback(`🎯 Correct! +${points} points (x${this.comboMultiplier.toFixed(1)})`, 'success');
+                                
+                                // IMMEDIATELY generate new target and aliens - NO PAUSE
+                                this.generateNewTarget();
+                                this.clearAllAliens();
+                                this.spawnNewAlienSet();
+                                
+                            } else {
+                                this.lives++;
+                                this.missCount++;
+                                this.comboMultiplier = 1; // Reset combo
+                                this.showFeedback(`❌ Wrong! That equals ${this.evaluateExpression(alien.expression)}`, 'error');
+                                
+                                if (this.lives <= 0) {
+                                    this.endGame();
+                                    return;
+                                }
+                            }
+                            
+                            // Remove both laser and alien
+                            this.lasers.splice(j, 1);
+                            this.aliens.splice(i, 1);
+                            this.updateStats();
+                            break;
+                        }
+                    }
+                }
+                
+                // Spawn new aliens continuously
+                this.alienSpawnTimer++;
+                if (this.alienSpawnTimer >= this.alienSpawnInterval && this.aliens.length < 4) {
+                    this.spawnAlien();
+                    this.alienSpawnTimer = 0;
+                }
+            }
+            
+            clearAllAliens() {
+                // Clear all existing aliens when new target appears
+                this.aliens = [];
+            }
+            
+            spawnNewAlienSet() {
+                // Spawn a complete set of aliens for the new target
+                const alienCount = 4;
+                for (let i = 0; i < alienCount; i++) {
+                    setTimeout(() => {
+                        this.spawnAlien();
+                    }, i * 500); // Staggered spawning
+                }
+            }
+            
+            updateExplosions() {
+                for (let i = this.explosions.length - 1; i >= 0; i--) {
+                    const explosion = this.explosions[i];
+                    explosion.radius += 3;
+                    explosion.alpha -= 0.05;
+                    
+                    if (explosion.alpha <= 0) {
+                        this.explosions.splice(i, 1);
+                    }
+                }
+            }
+            
+            createExplosion(x, y) {
+                this.explosions.push({
+                    x: x,
+                    y: y,
+                    radius: 10,
+                    alpha: 1
+                });
+            }
+            
+            checkCollision(obj1, obj2) {
+                return obj1.x < obj2.x + obj2.width &&
+                       obj1.x + obj1.width > obj2.x &&
+                       obj1.y < obj2.y + obj2.height &&
+                       obj1.y + obj1.height > obj2.y;
+            }
+            
+            evaluateExpression(expression) {
+                try {
+                    // Safe evaluation
+                    const parts = expression.split(' ');
+                    if (parts.length === 3) {
+                        const a = parseInt(parts[0]);
+                        const op = parts[1];
+                        const b = parseInt(parts[2]);
+                        
+                        switch(op) {
+                            case '+': return a + b;
+                            case '-': return a - b;
+                            default: return 0;
+                        }
+                    }
+                    return 0;
+                } catch (error) {
+                    console.error('Expression evaluation error:', error);
+                    return 0;
+                }
+            }
+            
+            update() {
+                if (!this.isRunning || this.isPaused || this.gameOver) return;
+                
+                // Update game timer
+                this.gameTimer++;
+                
+                this.updateLasers();
+                this.updateAliens();
+                this.updateExplosions();
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.fillStyle = '#000428';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw stars
+                for (let i = 0; i < 30; i++) {
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.globalAlpha = Math.random() * 0.8 + 0.2;
+                    this.ctx.fillRect(
+                        Math.random() * this.canvas.width,
+                        Math.random() * this.canvas.height,
+                        2, 2
+                    );
+                }
+                this.ctx.globalAlpha = 1;
+                
+                // Draw aliens
+                this.aliens.forEach(alien => {
+                    // Draw UFO body (ellipse shape like in the image)
+                    this.ctx.fillStyle = alien.color;
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(alien.x + alien.width/2, alien.y + alien.height/2, alien.width/2, alien.height/2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Draw UFO dome
+                    this.ctx.fillStyle = alien.isCorrect ? '#81c784' : '#ef5350';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(alien.x + alien.width/2, alien.y + alien.height/2 - 5, alien.width/3, alien.height/3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Draw expression
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 14px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(alien.expression, alien.x + alien.width/2, alien.y + alien.height/2 + 5);
+                });
+                
+                // Draw lasers
+                this.ctx.fillStyle = '#ff0000';
+                this.lasers.forEach(laser => {
+                    this.ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
+                });
+                
+                // Draw explosions
+                this.explosions.forEach(explosion => {
+                    this.ctx.strokeStyle = `rgba(255, 165, 0, ${explosion.alpha})`;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                });
+                
+                // Draw cannon (like in the image)
+                this.ctx.fillStyle = '#2196f3';
+                this.ctx.fillRect(this.cannon.x - 20, this.cannon.y - 10, 40, 20);
+                
+                // Cannon barrel
+                this.ctx.fillStyle = '#1976d2';
+                this.ctx.fillRect(this.cannon.x - 3, this.cannon.y - 20, 6, 15);
+                
+                // Cannon base
+                this.ctx.fillStyle = '#0d47a1';
+                this.ctx.fillRect(this.cannon.x - 25, this.cannon.y - 5, 50, 10);
+                
+                // Draw game state text
+                if (!this.isRunning && !this.gameOver) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 32px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('Press Start to Begin!', this.canvas.width/2, this.canvas.height/2);
+                }
+                
+                if (this.isPaused && !this.gameOver) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 32px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('PAUSED', this.canvas.width/2, this.canvas.height/2);
+                }
+            }
+            
+            gameLoop() {
+                this.update();
+                this.render();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+            
+            updateStats() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('lives').textContent = this.lives;
+                document.getElementById('wave').textContent = this.wave;
+                
+                const accuracy = this.shotsFired > 0 ? 
+                    Math.round((this.shotsHit / this.shotsFired) * 100) : 100;
+                document.getElementById('accuracy').textContent = `${accuracy}%`;
+                
+                // Update timer display
+                const minutes = Math.floor(this.gameTimer / 3600);
+                const seconds = Math.floor((this.gameTimer % 3600) / 60);
+                const timerDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Add timer to display if not exists
+                let timerElement = document.getElementById('timerDisplay');
+                if (!timerElement) {
+                    timerElement = document.createElement('div');
+                    timerElement.id = 'timerDisplay';
+                    timerElement.className = 'stat';
+                    timerElement.innerHTML = '<div class="stat-label">Time</div><div class="stat-value" id="timerValue">0:00</div>';
+                    document.querySelector('.stats').appendChild(timerElement);
+                }
+                document.getElementById('timerValue').textContent = timerDisplay;
+            }
+            
+            showFeedback(message, type) {
+                const feedback = document.getElementById('feedback');
+                feedback.textContent = message;
+                feedback.className = `feedback ${type}`;
+                feedback.style.display = 'block';
+                
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                }, 3000);
+            }
+            
+            startGame() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.isPaused = false;
+                this.gameOver = false;
+                this.score = 0;
+                this.lives = 3;
+                this.wave = 1;
+                this.shotsFired = 0;
+                this.shotsHit = 0;
+                this.missCount = 0;
+                this.gameTimer = 0;
+                this.lastCorrectShot = Date.now();
+                this.comboMultiplier = 1;
+                this.aliens = [];
+                this.lasers = [];
+                this.explosions = [];
+                this.alienSpawnTimer = 0;
+                this.alienSpawnInterval = 120;
+                
+                this.generateNewTarget();
+                this.spawnNewAlienSet(); // Start with initial alien set
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                this.updateStats();
+            }
+            
+            pauseGame() {
+                if (!this.isRunning || this.gameOver) return;
+                this.isPaused = !this.isPaused;
+                document.getElementById('pauseBtn').textContent = this.isPaused ? 'Resume' : 'Pause';
+            }
+            
+            resetGame() {
+                this.isRunning = false;
+                this.isPaused = false;
+                this.gameOver = false;
+                
+                this.score = 0;
+                this.lives = 3;
+                this.wave = 1;
+                this.shotsFired = 0;
+                this.shotsHit = 0;
+                this.aliens = [];
+                this.lasers = [];
+                this.explosions = [];
+                this.alienSpawnTimer = 0;
+                
+                this.generateNewTarget();
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('pauseBtn').textContent = 'Pause';
+                this.updateStats();
+                this.hideFeedback();
+            }
+            
+            hideFeedback() {
+                document.getElementById('feedback').style.display = 'none';
+            }
+            
+            endGame() {
+                this.gameOver = true;
+                this.isRunning = false;
+                
+                const accuracy = this.shotsFired > 0 ? 
+                    Math.round((this.shotsHit / this.shotsFired) * 100) : 0;
+                
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = 'bold 48px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('GAME OVER', this.canvas.width/2, this.canvas.height/2 - 50);
+                
+                this.ctx.font = 'bold 24px Arial';
+                this.ctx.fillText(`Final Score: ${this.score}`, this.canvas.width/2, this.canvas.height/2);
+                this.ctx.fillText(`Accuracy: ${accuracy}%`, this.canvas.width/2, this.canvas.height/2);
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+            }
+        }
+        
+        // Global functions
+        let game;
+        
+        function startGame() {
+            if (game) game.startGame();
+        }
+        
+        function pauseGame() {
+            if (game) game.pauseGame();
+        }
+        
+        function resetGame() {
+            if (game) game.resetGame();
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new AlienBlasterGame();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Runner Game - AI Generated</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .runner-game-container {
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .game-area {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        #gameCanvas {
+            border: 3px solid #4a5568;
+            border-radius: 12px;
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #87ceeb 0%, #98fb98 100%);
+        }
+        
+        .question-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            display: none;
+            z-index: 100;
+            min-width: 400px;
+        }
+        
+        .question-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        
+        .platform-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .platform-option {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 18px;
+            font-weight: bold;
+            border: 3px solid transparent;
+        }
+        
+        .platform-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .platform-option.selected {
+            border-color: #48bb78;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .info-panel {
+            flex: 0 0 350px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        .game-stats {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .stat-value {
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .control-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+        
+        .start-btn {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+        
+        .pause-btn {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+        
+        .reset-btn {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+            color: white;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .instructions {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+        
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .feedback-message {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .feedback-message.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .feedback-message.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .game-over-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .game-over-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .game-over-title {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        
+        .game-over-title.victory {
+            color: #48bb78;
+        }
+        
+        .game-over-title.defeat {
+            color: #f56565;
+        }
+        
+        .final-stats {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🏃 Math Runner Game</h1>
+            <p class="subtitle">Jump onto the correct answer platforms!</p>
+        </header>
+
+        <main class="main-content">
+            <div class="runner-game-container">
+                <!-- Game Area -->
+                <div class="game-area">
+                    <div class="canvas-container">
+                        <canvas id="gameCanvas" width="800" height="400"></canvas>
+                        
+                        <!-- Question Overlay -->
+                        <div class="question-overlay" id="questionOverlay">
+                            <div class="question-text" id="questionText">
+                                Math question will appear here
+                            </div>
+                            <div class="platform-options" id="platformOptions">
+                                <!-- Platform options will be generated here -->
+                            </div>
+                            <button class="control-btn start-btn" id="confirmAnswerBtn" onclick="confirmAnswer()">
+                                Confirm Answer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="info-panel">
+                    <div class="instructions">
+                        <h3>🎮 How to Play</h3>
+                        <ul>
+                            <li><strong>Space/Click:</strong> Jump</li>
+                            <li><strong>Goal:</strong> Jump on correct answer platforms</li>
+                            <li><strong>Avoid:</strong> Wrong answer platforms</li>
+                            <li><strong>Lives:</strong> You have 3 lives</li>
+                            <li><strong>Speed:</strong> Increases as you progress!</li>
+                        </ul>
+                    </div>
+
+                    <div class="game-stats">
+                        <div class="stat-item">
+                            <span>🎯 Score:</span>
+                            <span class="stat-value" id="score">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>❤️ Lives:</span>
+                            <span class="stat-value" id="lives">3</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>⚡ Speed:</span>
+                            <span class="stat-value" id="speed">1.0x</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>📏 Distance:</span>
+                            <span class="stat-value" id="distance">0m</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>✅ Correct:</span>
+                            <span class="stat-value" id="correctAnswers">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>⏱️ Time:</span>
+                            <span class="stat-value" id="timer">0:00</span>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="control-btn start-btn" id="startBtn" onclick="startGame()">
+                            🎮 Start Game
+                        </button>
+                        <button class="control-btn pause-btn" id="pauseBtn" onclick="pauseGame()" disabled>
+                            ⏸️ Pause
+                        </button>
+                        <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()">
+                            🔄 Reset
+                        </button>
+                    </div>
+
+                    <div class="feedback-message" id="feedbackMessage">
+                        <!-- Feedback will appear here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div class="game-over-screen" id="gameOverScreen">
+        <div class="game-over-content">
+            <div class="game-over-title" id="gameOverTitle">Game Over</div>
+            <p id="gameOverMessage">Message</p>
+            <div class="final-stats">
+                <div class="stat-item">
+                    <span>Final Score:</span>
+                    <span class="stat-value" id="finalScore">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>Distance:</span>
+                    <span class="stat-value" id="finalDistance">0m</span>
+                </div>
+                <div class="stat-item">
+                    <span>Accuracy:</span>
+                    <span class="stat-value" id="finalAccuracy">0%</span>
+                </div>
+                <div class="stat-item">
+                    <span>Time:</span>
+                    <span class="stat-value" id="finalTime">0:00</span>
+                </div>
+            </div>
+            <button class="control-btn start-btn" onclick="playAgain()">Play Again</button>
+        </div>
+    </div>
+
+    <script src="runner_game.js"></script>
+</body>
+</html>
