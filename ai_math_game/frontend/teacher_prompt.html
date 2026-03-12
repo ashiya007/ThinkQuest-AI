@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ThinkQuest AI - Teacher Orchestrator</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ThinkQuest AI - Adaptive Math Learning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #667eea;
@@ -13,347 +13,578 @@
             --success: #48bb78;
             --warning: #ed8936;
             --danger: #f56565;
-            --dark: #2d3748;
-            --light: #f7fafc;
+            --dark: #1a202c;
+            --card: rgba(255, 255, 255, 0.97);
         }
 
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #e53e3e 100%);
+            background-attachment: fixed;
             min-height: 100vh;
-            margin: 0;
-            padding: 20px;
+            color: #2d3748;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 36px 20px 16px;
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero .tagline {
+            font-size: 1.05rem;
+            opacity: 0.9;
+            margin-top: 6px;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1300px;
             margin: 0 auto;
+            padding: 0 20px 40px;
         }
 
-        .header {
-            text-align: center;
+        .section-title {
             color: white;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .header .subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .orchestrator-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
-        }
-
-        @media (max-width: 1024px) {
-            .orchestrator-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 25px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .panel h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 24px 0 12px;
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 0 0 20px 0;
-            color: var(--dark);
-            font-size: 1.4rem;
         }
 
-        .panel-subtitle {
-            color: #718096;
+        /* ── TOPIC SELECTOR ── */
+        .topic-panel {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
             margin-bottom: 20px;
-            font-size: 0.95rem;
         }
 
-        .prompt-input {
-            width: 100%;
-            min-height: 100px;
-            padding: 18px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 16px;
-            font-family: inherit;
-            resize: vertical;
-            transition: all 0.3s ease;
-        }
-
-        .prompt-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-
-        .btn {
-            padding: 14px 28px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
+        .topic-panel h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .btn-primary {
+        .topic-panel p {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-bottom: 16px;
+        }
+
+        .selector-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .selector-group {
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .selector-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
+        .selector-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .selector-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .selected-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            margin-top: 12px;
+        }
+
+        /* ── GAME CARDS ── */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+        }
+
+        .game-card {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .game-card:nth-child(1)::before {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .game-card:nth-child(2)::before {
+            background: linear-gradient(90deg, #48bb78, #38a169);
+        }
+
+        .game-card:nth-child(3)::before {
+            background: linear-gradient(90deg, #ed8936, #dd6b20);
+        }
+
+        .game-card:nth-child(4)::before {
+            background: linear-gradient(90deg, #e53e3e, #c53030);
+        }
+
+        .game-card:nth-child(5)::before {
+            background: linear-gradient(90deg, #9f7aea, #805ad5);
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+        }
+
+        .game-card .emoji {
+            font-size: 2.6rem;
+            margin-bottom: 8px;
+        }
+
+        .game-card h3 {
+            font-size: 1rem;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .game-card p {
+            font-size: 0.78rem;
+            color: #718096;
+            line-height: 1.3;
+        }
+
+        .game-card .badge-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+        }
+
+        .badge-adaptive {
+            background: #ebf8ff;
+            color: #2b6cb0;
+        }
+
+        /* ── AI FEATURES SECTION ── */
+        .ai-features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .ai-features {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ai-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .ai-card .icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .ai-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .ai-card p {
+            font-size: 0.78rem;
+            opacity: 0.85;
+            line-height: 1.3;
+        }
+
+        /* ── PROMPT PANEL ── */
+        .prompt-panel {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            margin-bottom: 20px;
+        }
+
+        .prompt-panel h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .prompt-panel>p {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 14px;
+        }
+
+        .prompt-textarea {
+            width: 100%;
+            min-height: 70px;
+            padding: 12px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        .prompt-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .suggested-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #718096;
+            margin: 12px 0 6px;
+        }
+
+        .prompt-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .prompt-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #edf2f7;
+            color: #4a5568;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .prompt-chip:hover {
+            background: #e9d8fd;
+            color: #553c9a;
+            border-color: #9f7aea;
+        }
+
+        .prompt-chip.active {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #38a169, #48bb78);
-            color: white;
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
-        }
-
-        .config-display {
-            background: #1a202c;
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .config-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .config-tab {
-            padding: 8px 16px;
-            border-radius: 6px;
-            background: #2d3748;
-            color: #a0aec0;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-
-        .config-tab.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .config-content {
-            display: none;
-        }
-
-        .config-content.active {
-            display: block;
-        }
-
-        .json-viewer {
-            color: #68d391;
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 13px;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            line-height: 1.5;
-        }
-
-        .visual-preview {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
-        }
-
-        .preview-item {
-            text-align: center;
-            padding: 15px;
-            background: #2d3748;
-            border-radius: 10px;
-        }
-
-        .preview-item .emoji {
-            font-size: 2rem;
-            margin-bottom: 8px;
-        }
-
-        .preview-item .label {
-            font-size: 11px;
-            color: #a0aec0;
-            text-transform: uppercase;
-        }
-
-        .color-swatch {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            margin: 0 auto 8px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .action-buttons {
+        /* ── LAUNCH SESSION ── */
+        .launch-row {
             display: flex;
             gap: 12px;
-            margin-top: 20px;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
         }
 
-        .action-buttons .btn {
-            flex: 1;
-        }
-
-        .session-card {
-            background: linear-gradient(135deg, #48bb78, #38a169);
-            color: white;
-            padding: 25px;
+        .launch-btn {
+            padding: 12px 32px;
+            border: none;
             border-radius: 12px;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .session-code {
-            font-size: 2.5rem;
-            font-weight: bold;
-            letter-spacing: 4px;
-            text-align: center;
-            margin: 15px 0;
-            font-family: monospace;
-        }
-
-        .session-url {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 12px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 14px;
-            text-align: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: inherit;
             cursor: pointer;
-        }
-
-        .session-url:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .example-prompts {
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 15px;
+            align-items: center;
+            gap: 8px;
         }
 
-        .example-prompt {
-            padding: 12px 16px;
-            background: #f7fafc;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
+        .launch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+        }
+
+        .launch-game-select {
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
             font-size: 14px;
-            color: #4a5568;
-            border: 1px solid #e2e8f0;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+            min-width: 180px;
         }
 
-        .example-prompt:hover {
-            background: #edf2f7;
+        .launch-game-select:focus {
+            outline: none;
             border-color: var(--primary);
-            transform: translateX(5px);
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+        /* ── SESSION CODE ── */
+        .session-panel {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
             margin-bottom: 20px;
         }
 
-        .stat-card {
-            background: #f7fafc;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--primary);
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #718096;
-            text-transform: uppercase;
-            margin-top: 5px;
-        }
-
-        .student-list {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .student-item {
+        .session-panel h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 12px 15px;
-            background: #f7fafc;
-            border-radius: 8px;
-            margin-bottom: 8px;
+            gap: 8px;
         }
 
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
+        .session-panel>p {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 14px;
+        }
+
+        .session-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .session-code-display {
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: var(--primary);
+            background: #f0f4ff;
+            padding: 10px 24px;
+            border-radius: 12px;
+            border: 2px dashed var(--primary);
+            text-align: center;
+            min-width: 160px;
+        }
+
+        .session-link-box {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .session-link-input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
             font-size: 12px;
+            font-family: 'Courier New', monospace;
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .copy-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 10px;
+            background: var(--success);
+            color: white;
             font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            white-space: nowrap;
         }
 
-        .badge-primary {
-            background: #ebf4ff;
-            color: #5a67d8;
+        .copy-btn:hover {
+            background: #38a169;
         }
 
-        .badge-success {
-            background: #c6f6d5;
+        .generate-code-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+        }
+
+        .generate-code-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(72, 187, 120, 0.4);
+        }
+
+        .join-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .join-input {
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-align: center;
+            width: 180px;
+            transition: border-color 0.2s;
+        }
+
+        .join-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .join-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .join-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .session-info {
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            border-radius: 10px;
+            font-size: 12px;
             color: #276749;
+            display: none;
         }
 
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+        /* ── LOADING OVERLAY ── */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-box {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 360px;
+        }
+
+        .loading-box .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top-color: var(--primary);
             border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
         }
 
         @keyframes spin {
@@ -362,404 +593,411 @@
             }
         }
 
-        .operations-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .op-badge {
-            background: var(--primary);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+        .loading-box p {
+            color: #4a5568;
+            font-size: 14px;
         }
     </style>
 </head>
 
 <body>
+    <div class="hero">
+        <h1>🧠 ThinkQuest AI</h1>
+        <p class="tagline">Adaptive Math Learning — Powered by AI Question Generation</p>
+    </div>
+
     <div class="container">
-        <header class="header">
-            <h1>🧠 ThinkQuest AI Orchestrator</h1>
-            <p class="subtitle">Define learning environments with natural language. Launch sessions for your students.
+        <!-- Topic Selector -->
+        <div class="topic-panel">
+            <h2>🎯 Choose Your Topic</h2>
+            <p>Select a math topic below, then launch any game — AI will generate questions for that topic in real-time!
             </p>
-        </header>
-
-        <div class="orchestrator-grid">
-            <!-- Left Panel: Prompt Input & Configuration -->
-            <div class="panel">
-                <h2>📝 Define Learning Environment</h2>
-                <p class="panel-subtitle">Describe your ideal lesson. The AI will architect a complete game
-                    configuration.</p>
-
-                <textarea id="promptInput" class="prompt-input"
-                    placeholder="Example: 3rd Grade Division in a Space theme with fast gameplay and 10 questions"></textarea>
-
-                <div style="margin-top: 15px;">
-                    <button id="generateBtn" onclick="generateConfiguration()" class="btn btn-primary"
-                        style="width: 100%;">
-                        🚀 Generate Configuration
-                    </button>
+            <div class="selector-row">
+                <div class="selector-group">
+                    <label>Category</label>
+                    <select id="topicSelect" onchange="onTopicChange()">
+                        <option value="">Loading topics...</option>
+                    </select>
                 </div>
-
-                <!-- Configuration Display -->
-                <div id="configDisplay" class="config-display">
-                    <div class="config-tabs">
-                        <div class="config-tab active" onclick="switchTab('schema')">Schema</div>
-                        <div class="config-tab" onclick="switchTab('visual')">Visual Assets</div>
-                        <div class="config-tab" onclick="switchTab('speed')">Speed Config</div>
-                    </div>
-
-                    <div id="schemaContent" class="config-content active">
-                        <pre id="jsonViewer" class="json-viewer"></pre>
-                    </div>
-
-                    <div id="visualContent" class="config-content">
-                        <div id="visualPreview" class="visual-preview"></div>
-                    </div>
-
-                    <div id="speedContent" class="config-content">
-                        <div id="speedPreview" class="visual-preview"></div>
-                    </div>
-
-                    <div id="operationsBadges" class="operations-badges"></div>
-
-                    <div class="action-buttons">
-                        <button onclick="launchSession()" class="btn btn-success">
-                            🎯 Launch Session
-                        </button>
-                        <button onclick="testGame()" class="btn btn-primary">
-                            🎮 Quick Test
-                        </button>
-                    </div>
+                <div class="selector-group">
+                    <label>Subtopic</label>
+                    <select id="subtopicSelect">
+                        <option value="">Select category first</option>
+                    </select>
                 </div>
-
-                <!-- Session Card -->
-                <div id="sessionCard" class="session-card">
-                    <h3 style="margin: 0 0 10px 0;">✅ Session Created!</h3>
-                    <p style="opacity: 0.9; margin-bottom: 15px;">Share this code with your students:</p>
-                    <div id="sessionCode" class="session-code">ABC123</div>
-                    <div id="sessionUrl" class="session-url" onclick="copySessionUrl()">
-                        Click to copy join URL
-                    </div>
-                </div>
-
-                <!-- Example Prompts -->
-                <div style="margin-top: 25px;">
-                    <h3 style="margin-bottom: 10px;">💡 Example Prompts</h3>
-                    <div id="exampleContainer" class="example-prompts"></div>
+                <div class="selector-group">
+                    <label>Difficulty</label>
+                    <select id="difficultySelect">
+                        <option value="easy">🟢 Easy</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="hard">🔴 Hard</option>
+                    </select>
                 </div>
             </div>
+            <div id="selectionBadge" style="margin-top: 12px;"></div>
+        </div>
 
-            <!-- Right Panel: Active Sessions & Analytics -->
-            <div class="panel">
-                <h2>📊 Session Monitor</h2>
 
-                <div id="noActiveSession" style="text-align: center; padding: 40px; color: #718096;">
-                    <div style="font-size: 3rem; margin-bottom: 15px;">🎮</div>
-                    <p>No active session. Launch one to see live student stats.</p>
-                </div>
 
-                <div id="activeSessionPanel" style="display: none;">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div id="statStudents" class="stat-value">0</div>
-                            <div class="stat-label">Students</div>
-                        </div>
-                        <div class="stat-card">
-                            <div id="statQuestions" class="stat-value">0</div>
-                            <div class="stat-label">Questions</div>
-                        </div>
-                        <div class="stat-card">
-                            <div id="statAccuracy" class="stat-value">0%</div>
-                            <div class="stat-label">Avg Accuracy</div>
-                        </div>
+        <!-- Games -->
+        <div class="section-title">🎮 Choose a Game</div>
+        <div class="games-grid">
+            <div class="game-card" onclick="selectGame('/puzzle_game.html', this)" id="card-puzzle">
+                <div class="emoji">🧩</div>
+                <h3>Math Puzzle</h3>
+                <p>Solve AI-generated puzzles</p>
+                <span class="badge-tag badge-adaptive">AI Powered</span>
+            </div>
+            <div class="game-card" onclick="selectGame('/runner_game.html', this)" id="card-runner">
+                <div class="emoji">🏃</div>
+                <h3>Math Runner</h3>
+                <p>Dodge wrong gates, jump on the right answer!</p>
+                <span class="badge-tag badge-adaptive">AI Powered</span>
+            </div>
+            <div class="game-card" onclick="selectGame('/alien_blaster.html', this)" id="card-alien">
+                <div class="emoji">🛸</div>
+                <h3>Alien Blaster</h3>
+                <p>Shoot UFOs carrying the correct answer</p>
+                <span class="badge-tag badge-adaptive">AI Powered</span>
+            </div>
+            <div class="game-card" onclick="selectGame('/quiz_game.html', this)" id="card-quiz">
+                <div class="emoji">❓</div>
+                <h3>Quick Quiz</h3>
+                <p>Timed math quiz with instant feedback</p>
+                <span class="badge-tag badge-adaptive">AI Powered</span>
+            </div>
+            <div class="game-card" onclick="selectGame('/kang.html', this)" id="card-kang">
+                <div class="emoji">🦘</div>
+                <h3>Kangaroo Jump</h3>
+                <p>Jump to the correct answer!</p>
+                <span class="badge-tag badge-adaptive">AI Powered</span>
+            </div>
+        </div>
+
+        <!-- AI Prompt -->
+        <div class="prompt-panel" style="margin-top: 24px;">
+            <h2>✨ AI Prompt</h2>
+            <p>Type a custom prompt or click a suggestion below to customize how AI generates your questions.</p>
+            <textarea id="promptInput" class="prompt-textarea"
+                placeholder="e.g. Generate multiplication tables for class 5 students with word problems..."></textarea>
+            <div class="suggested-label">Suggested Prompts</div>
+            <div class="prompt-chips">
+                <span class="prompt-chip" onclick="usePrompt(this)">Generate multiplication tables up to 12×12 for
+                    beginners</span>
+                <span class="prompt-chip" onclick="usePrompt(this)">Create fraction addition problems with unlike
+                    denominators</span>
+                <span class="prompt-chip" onclick="usePrompt(this)">Make word problems about percentages and
+                    discounts</span>
+                <span class="prompt-chip" onclick="usePrompt(this)">Generate algebra equations with one variable for
+                    class 7</span>
+                <span class="prompt-chip" onclick="usePrompt(this)">Create geometry questions about area and
+                    perimeter</span>
+                <span class="prompt-chip" onclick="usePrompt(this)">Simple addition and subtraction for kindergarten
+                    with numbers under 10</span>
+            </div>
+        </div>
+
+        <!-- Launch & Session Control (Consolidated at the bottom) -->
+        <div class="section-title" style="margin-top: 40px;">🚀 Launch Session & Controls</div>
+        <div class="prompt-panel">
+            <div class="launch-row" style="justify-content: center; padding: 10px 0;">
+                <button class="launch-btn" style="background: #4a5568;" onclick="quickTest()">⚡ Quick Test</button>
+                <button class="launch-btn" onclick="handleLaunchSession()">🚀 Launch Session (Get Code)</button>
+            </div>
+
+            <!-- Session Code Area (Hidden until Launch Session is clicked) -->
+            <div id="sessionCodeArea"
+                style="display:none; margin-top: 20px; border-top: 2px solid #edf2f7; padding-top: 20px;">
+                <h2 style="justify-content: center;">🔗 Student Session Code</h2>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content: center;">
+                    <div class="session-code-display" id="sessionCode"></div>
+                    <div class="session-link-box">
+                        <input type="text" class="session-link-input" id="sessionLink" readonly>
+                        <button class="copy-btn" onclick="copyLink()">📋 Copy Link</button>
                     </div>
-
-                    <h3>👥 Connected Students</h3>
-                    <div id="studentList" class="student-list">
-                        <p style="color: #718096; text-align: center;">Waiting for students to join...</p>
-                    </div>
-
-                    <button onclick="endSession()" class="btn"
-                        style="width: 100%; margin-top: 20px; background: var(--danger); color: white;">
-                        🛑 End Session
-                    </button>
                 </div>
+                <div id="sessionInfo" class="session-info" style="text-align: center; margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Student Join Section -->
+        <div class="session-panel">
+            <h2>🎓 Student: Join a Session</h2>
+            <p>Enter the code your teacher shared to join the pre-configured session.</p>
+            <div class="join-row">
+                <input type="text" class="join-input" id="joinCodeInput" placeholder="ABC123" maxlength="6">
+                <button class="join-btn" onclick="joinSession()">🚀 Join & Play</button>
+            </div>
+        </div>
+
+
+
+        <!-- AI Features Showcase -->
+        <div class="section-title">✨ AI Features</div>
+        <div class="ai-features">
+            <div class="ai-card">
+                <div class="icon">🤖</div>
+                <h3>AI Question Generation</h3>
+                <p>Questions generated in real-time by Groq/Gemini AI for any math topic — no datasets needed</p>
+            </div>
+            <div class="ai-card">
+                <div class="icon">💡</div>
+                <h3>AI Smart Hints</h3>
+                <p>When you answer wrong, AI explains your specific mistake and guides you to the solution</p>
+            </div>
+            <div class="ai-card">
+                <div class="icon">📊</div>
+                <h3>AI Performance Report</h3>
+                <p>After each game, AI analyzes your session and gives personalized feedback and advice</p>
             </div>
         </div>
     </div>
 
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p>🤖 AI is preparing your questions...</p>
+        </div>
+    </div>
+
     <script>
-        let currentConfig = null;
-        let activeSessionId = null;
-        let pollInterval = null;
+        let topicsData = {};
+        let currentSessionCode = '';
+        let selectedGameUrl = '/puzzle_game.html'; // Default
 
-        async function loadExamples() {
+        // ── Load topics from backend ──
+        async function loadTopics() {
             try {
-                const res = await fetch('/api/get_prompt_examples');
+                const res = await fetch('/api/topics');
                 const data = await res.json();
-                const container = document.getElementById('exampleContainer');
-                container.innerHTML = '';
-
-                data.examples.forEach(text => {
-                    const div = document.createElement('div');
-                    div.className = 'example-prompt';
-                    div.textContent = text;
-                    div.onclick = () => {
-                        document.getElementById('promptInput').value = text;
-                        document.getElementById('promptInput').focus();
-                    };
-                    container.appendChild(div);
-                });
-            } catch (e) {
-                console.error("Failed to load examples:", e);
-            }
-        }
-
-        async function generateConfiguration() {
-            const prompt = document.getElementById('promptInput').value.trim();
-            const btn = document.getElementById('generateBtn');
-
-            if (!prompt) {
-                alert('Please enter a prompt describing your lesson.');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> AI is architecting...';
-
-            try {
-                const res = await fetch('/api/parse_prompt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-
-                const data = await res.json();
-
                 if (data.success) {
-                    currentConfig = data.game_config;
-                    displayConfiguration(currentConfig);
-                    document.getElementById('configDisplay').style.display = 'block';
-                    document.getElementById('sessionCard').style.display = 'none';
-                } else {
-                    alert('Failed to generate configuration: ' + (data.error || 'Unknown error'));
-                }
-            } catch (e) {
-                console.error('Generation error:', e);
-                alert('Failed to connect to the server.');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🚀 Generate Configuration';
-            }
-        }
-
-        function displayConfiguration(config) {
-            // Display JSON schema
-            const cleanConfig = { ...config };
-            delete cleanConfig.visual_assets;
-            delete cleanConfig.speed_config;
-            document.getElementById('jsonViewer').textContent = JSON.stringify(cleanConfig, null, 2);
-
-            // Display visual assets
-            if (config.visual_assets) {
-                const va = config.visual_assets;
-                document.getElementById('visualPreview').innerHTML = `
-                    <div class="preview-item">
-                        <div class="color-swatch" style="background: ${va.primary_color}"></div>
-                        <div class="label">Primary</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="color-swatch" style="background: ${va.accent_color}"></div>
-                        <div class="label">Accent</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="color-swatch" style="background: ${va.highlight_color}"></div>
-                        <div class="label">Highlight</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="emoji">${va.character_emoji}</div>
-                        <div class="label">Character</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="emoji">${va.goal_emoji}</div>
-                        <div class="label">Goal</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="emoji">${va.correct_emoji}</div>
-                        <div class="label">Correct</div>
-                    </div>
-                `;
-            }
-
-            // Display speed config
-            if (config.speed_config) {
-                const sc = config.speed_config;
-                document.getElementById('speedPreview').innerHTML = `
-                    <div class="preview-item">
-                        <div class="emoji">⚡</div>
-                        <div style="color: white; font-size: 1.2rem;">${sc.platform_speed}</div>
-                        <div class="label">Speed</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="emoji">⏱️</div>
-                        <div style="color: white; font-size: 1.2rem;">${sc.question_time_limit}s</div>
-                        <div class="label">Time Limit</div>
-                    </div>
-                    <div class="preview-item">
-                        <div class="emoji">🔄</div>
-                        <div style="color: white; font-size: 1.2rem;">${sc.spawn_interval}ms</div>
-                        <div class="label">Spawn Rate</div>
-                    </div>
-                `;
-            }
-
-            // Display operations badges
-            if (config.operations && Array.isArray(config.operations)) {
-                document.getElementById('operationsBadges').innerHTML = config.operations
-                    .map(op => `<span class="op-badge">${op}</span>`)
-                    .join('');
-            }
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.config-content').forEach(c => c.classList.remove('active'));
-
-            event.target.classList.add('active');
-            document.getElementById(tab + 'Content').classList.add('active');
-        }
-
-        async function launchSession() {
-            if (!currentConfig) {
-                alert('Generate a configuration first.');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/create_session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game_config: currentConfig })
-                });
-
-                const data = await res.json();
-
-                if (data.success) {
-                    activeSessionId = data.session_id;
-
-                    // Show session card
-                    document.getElementById('sessionCode').textContent = data.session_id;
-                    document.getElementById('sessionUrl').textContent = window.location.origin + data.join_url;
-                    document.getElementById('sessionCard').style.display = 'block';
-
-                    // Show session monitor
-                    document.getElementById('noActiveSession').style.display = 'none';
-                    document.getElementById('activeSessionPanel').style.display = 'block';
-
-                    // Start polling for stats
-                    startPolling();
-                } else {
-                    alert('Failed to create session: ' + data.error);
-                }
-            } catch (e) {
-                console.error('Session creation error:', e);
-                alert('Failed to create session.');
-            }
-        }
-
-        function testGame() {
-            if (!currentConfig) {
-                alert('Generate a configuration first.');
-                return;
-            }
-
-            sessionStorage.setItem('gameConfig', JSON.stringify(currentConfig));
-
-            const gameType = currentConfig.game_type || 'puzzle';
-            if (gameType === 'runner') {
-                window.open('/runner_game.html', '_blank');
-            } else if (gameType === 'shooter') {
-                window.open('/alien_blaster.html', '_blank');
-            } else if (gameType === 'quiz') {
-                window.open('/quiz_game.html', '_blank');
-            } else if (gameType === 'kangaroo') {
-                window.open('/kang.html', '_blank');
-            } else {
-                window.open('/puzzle_game.html', '_blank');
-            }
-        }
-
-        function copySessionUrl() {
-            const url = document.getElementById('sessionUrl').textContent;
-            navigator.clipboard.writeText(url).then(() => {
-                const el = document.getElementById('sessionUrl');
-                const original = el.textContent;
-                el.textContent = '✓ Copied!';
-                setTimeout(() => el.textContent = original, 2000);
-            });
-        }
-
-        function startPolling() {
-            if (pollInterval) clearInterval(pollInterval);
-
-            pollInterval = setInterval(async () => {
-                if (!activeSessionId) return;
-
-                try {
-                    const res = await fetch(`/api/session_stats/${activeSessionId}`);
-                    const data = await res.json();
-
-                    if (data.success) {
-                        document.getElementById('statStudents').textContent = data.student_count;
-                        document.getElementById('statQuestions').textContent = data.questions_served;
-
-                        // Calculate average accuracy
-                        if (data.students && data.students.length > 0) {
-                            const avgAcc = data.students.reduce((sum, s) => sum + s.accuracy, 0) / data.students.length;
-                            document.getElementById('statAccuracy').textContent = Math.round(avgAcc) + '%';
-
-                            // Update student list
-                            const listHtml = data.students.map(s => `
-                                <div class="student-item">
-                                    <span>${s.student_id}</span>
-                                    <span class="badge badge-success">${s.accuracy}% (${s.questions_answered} Q)</span>
-                                </div>
-                            `).join('');
-                            document.getElementById('studentList').innerHTML = listHtml || '<p style="color: #718096; text-align: center;">Waiting for students...</p>';
-                        }
+                    topicsData = data.topics;
+                    const sel = document.getElementById('topicSelect');
+                    sel.innerHTML = '';
+                    for (const [key, val] of Object.entries(topicsData)) {
+                        const opt = document.createElement('option');
+                        opt.value = key;
+                        opt.textContent = val.label;
+                        sel.appendChild(opt);
                     }
-                } catch (e) {
-                    console.error('Polling error:', e);
+                    onTopicChange();
                 }
-            }, 3000);
+            } catch (e) {
+                console.error('Failed to load topics:', e);
+            }
+            restoreSession();
+            handleURLSession();
         }
 
-        async function endSession() {
-            if (!activeSessionId) return;
+        function onTopicChange() {
+            const topic = document.getElementById('topicSelect').value;
+            const subSel = document.getElementById('subtopicSelect');
+            subSel.innerHTML = '';
+            if (topicsData[topic] && topicsData[topic].subtopics) {
+                topicsData[topic].subtopics.forEach(st => {
+                    const opt = document.createElement('option');
+                    opt.value = st;
+                    opt.textContent = st.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    subSel.appendChild(opt);
+                });
+            }
+            updateBadge();
+        }
 
-            if (!confirm('End this session? Students will be disconnected.')) return;
+        function updateBadge() {
+            const topic = document.getElementById('topicSelect');
+            const sub = document.getElementById('subtopicSelect');
+            const diff = document.getElementById('difficultySelect');
+            const topicLabel = topic.options[topic.selectedIndex]?.textContent || '';
+            const subLabel = sub.options[sub.selectedIndex]?.textContent || '';
+            const diffLabel = diff.options[diff.selectedIndex]?.textContent || '';
+            document.getElementById('selectionBadge').innerHTML =
+                `<span class="selected-badge">🎯 ${topicLabel} → ${subLabel} (${diffLabel})</span>`;
 
+            const config = {
+                topic: topic.value,
+                subtopic: sub.value,
+                difficulty: diff.value,
+                topicLabel: topicLabel,
+                subtopicLabel: subLabel
+            };
+            sessionStorage.setItem('aiTopicConfig', JSON.stringify(config));
+            localStorage.setItem('tq_topicConfig', JSON.stringify(config));
+        }
+
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'subtopicSelect' || e.target.id === 'difficultySelect') {
+                updateBadge();
+            }
+        });
+
+        // ── Selection ──
+        function selectGame(url, card) {
+            selectedGameUrl = url;
+            document.querySelectorAll('.game-card').forEach(c => c.style.borderColor = 'transparent');
+            document.querySelectorAll('.game-card').forEach(c => c.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.1)');
+            card.style.borderColor = 'var(--primary)';
+            card.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.4)';
+            localStorage.setItem('tq_selectedGame', url);
+        }
+
+        // ── Prompt ──
+        function usePrompt(el) {
+            document.getElementById('promptInput').value = el.textContent.trim();
+            document.querySelectorAll('.prompt-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            savePrompt();
+        }
+
+        function savePrompt() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            localStorage.setItem('tq_customPrompt', prompt);
+            if (prompt) sessionStorage.setItem('aiCustomPrompt', prompt);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const ta = document.getElementById('promptInput');
+            if (ta) ta.addEventListener('input', savePrompt);
+        });
+
+        // ── Restore ──
+        function restoreSession() {
             try {
-                await fetch(`/api/end_session/${activeSessionId}`, { method: 'POST' });
+                const savedPrompt = localStorage.getItem('tq_customPrompt');
+                if (savedPrompt) {
+                    document.getElementById('promptInput').value = savedPrompt;
+                    sessionStorage.setItem('aiCustomPrompt', savedPrompt);
+                }
+                const savedConfig = JSON.parse(localStorage.getItem('tq_topicConfig') || '{}');
+                if (savedConfig.topic) {
+                    const topicSel = document.getElementById('topicSelect');
+                    topicSel.value = savedConfig.topic;
+                    onTopicChange();
+                    if (savedConfig.subtopic) document.getElementById('subtopicSelect').value = savedConfig.subtopic;
+                    if (savedConfig.difficulty) document.getElementById('difficultySelect').value = savedConfig.difficulty;
+                    updateBadge();
+                }
+                const savedGame = localStorage.getItem('tq_selectedGame');
+                if (savedGame) {
+                    selectedGameUrl = savedGame;
+                    const cardId = 'card-' + savedGame.split('_')[0].replace('/', '');
+                    const card = document.getElementById(cardId);
+                    if (card) selectGame(savedGame, card);
+                }
+            } catch (e) { console.log('No saved session'); }
+        }
 
-                activeSessionId = null;
-                if (pollInterval) clearInterval(pollInterval);
+        // ── Action Buttons ──
+        function quickTest() {
+            updateBadge();
+            savePrompt();
 
-                document.getElementById('activeSessionPanel').style.display = 'none';
-                document.getElementById('noActiveSession').style.display = 'block';
-                document.getElementById('sessionCard').style.display = 'none';
+            document.getElementById('loadingOverlay').classList.add('active');
+            setTimeout(() => {
+                document.getElementById('loadingOverlay').classList.remove('active');
+                window.open(selectedGameUrl, '_blank');
+            }, 800);
+        }
 
-            } catch (e) {
-                console.error('End session error:', e);
+        function handleLaunchSession() {
+            generateSessionCode();
+        }
+
+        function generateSessionCode() {
+            updateBadge();
+            savePrompt();
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            currentSessionCode = code;
+
+            const topic = document.getElementById('topicSelect').value;
+            const subtopic = document.getElementById('subtopicSelect').value;
+            const difficulty = document.getElementById('difficultySelect').value;
+            const prompt = document.getElementById('promptInput').value.trim();
+
+            const params = new URLSearchParams({
+                code: code,
+                t: topic,
+                s: subtopic,
+                d: difficulty,
+                p: prompt,
+                g: selectedGameUrl
+            });
+            const link = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+
+            localStorage.setItem('tq_session_' + code, JSON.stringify({ topic, subtopic, difficulty, prompt, game: selectedGameUrl }));
+
+            document.getElementById('sessionCode').textContent = code;
+            document.getElementById('sessionLink').value = link;
+            document.getElementById('sessionCodeArea').style.display = 'block';
+
+            const topicLabel = document.getElementById('topicSelect').options[document.getElementById('topicSelect').selectedIndex]?.textContent;
+            document.getElementById('sessionInfo').style.display = 'block';
+            document.getElementById('sessionInfo').innerHTML =
+                `✅ <strong>Session ${code}</strong> launched! Share the code with students.`;
+        }
+
+        function copyLink() {
+            const linkInput = document.getElementById('sessionLink');
+            linkInput.select();
+            document.execCommand('copy');
+            const btn = event.target;
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => btn.textContent = '📋 Copy Link', 2000);
+        }
+
+        function joinSession() {
+            const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+            if (!code) return;
+            const saved = localStorage.getItem('tq_session_' + code);
+            if (saved) {
+                const data = JSON.parse(saved);
+                applySessionData(data);
+                document.getElementById('loadingOverlay').classList.add('active');
+                setTimeout(() => {
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                    window.open(data.game || selectedGameUrl, '_blank');
+                }, 800);
+            } else {
+                alert('Session code not found.');
             }
         }
 
-        // Initialize
-        window.onload = loadExamples;
+        function handleURLSession() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (!code) return;
+            const data = {
+                topic: params.get('t'),
+                subtopic: params.get('s'),
+                difficulty: params.get('d'),
+                prompt: params.get('p') || '',
+                game: params.get('g')
+            };
+            if (data.topic) {
+                applySessionData(data);
+                window.history.replaceState({}, '', window.location.pathname);
+                // Auto-launch for students? Or just join.
+                // Let's just fill it and wait for them to launch.
+            }
+        }
+
+        function applySessionData(data) {
+            if (data.topic) {
+                document.getElementById('topicSelect').value = data.topic;
+                onTopicChange();
+            }
+            if (data.subtopic) document.getElementById('subtopicSelect').value = data.subtopic;
+            if (data.difficulty) document.getElementById('difficultySelect').value = data.difficulty;
+            if (data.prompt) document.getElementById('promptInput').value = data.prompt;
+            if (data.game) selectedGameUrl = data.game;
+            updateBadge();
+            savePrompt();
+        }
+
+        window.onload = loadTopics;
     </script>
 </body>
 

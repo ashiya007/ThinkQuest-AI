@@ -447,4 +447,40 @@ function endGame() {
     else if (playerRank === 1) title = '🥈 Second Place!';
     else if (playerRank === 2) title = '🥉 Third Place!';
     document.getElementById('results-title').innerText = title;
+
+    // Fetch AI post-game report
+    fetchKangAIReport(accuracy);
+}
+
+async function fetchKangAIReport(accuracy) {
+    try {
+        const res = await fetch('/api/ai_report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                score: Math.round(score),
+                total_questions: totalAttempts,
+                correct: correctClicks,
+                wrong_answers: Array.from(missedShapes).map(s => `Missed: ${s}`).slice(-5),
+                difficulty_progression: getLevelName(adaptiveLevel),
+                topic: 'Geometry - Shape Recognition',
+                max_streak: bestCombo,
+                game_name: 'Kangaroo Jump'
+            })
+        });
+        const data = await res.json();
+        if (data.success && data.report) {
+            // Create AI report element in results
+            let reportEl = document.getElementById('kangAIReport');
+            if (!reportEl) {
+                reportEl = document.createElement('div');
+                reportEl.id = 'kangAIReport';
+                reportEl.style.cssText = 'background:#f0f4ff; border:1px solid #667eea; border-radius:10px; padding:14px; margin:12px 0; font-size:13px; color:#2d3748; text-align:left; line-height:1.5;';
+                const missedContainer = document.querySelector('.missed-container');
+                if (missedContainer) missedContainer.after(reportEl);
+                else document.querySelector('.results-content').appendChild(reportEl);
+            }
+            reportEl.innerHTML = '<strong style="color:#667eea;">\ud83e\udd16 AI Analysis:</strong> ' + data.report;
+        }
+    } catch (e) { console.error('AI report error:', e); }
 }

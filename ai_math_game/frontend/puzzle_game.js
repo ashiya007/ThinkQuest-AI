@@ -62,7 +62,24 @@ class PuzzleGame {
             lockedEmoji: '🔒'
         };
 
+        // AI Integration
+        this.aiTopic = null;
+        this.previousQuestions = [];
+        this.wrongAnswers = [];
+        this.loadAITopic();
+
         this.init();
+    }
+
+    loadAITopic() {
+        try {
+            const cfg = JSON.parse(sessionStorage.getItem('aiTopicConfig') || '{}');
+            if (cfg.topic) {
+                this.aiTopic = cfg;
+                console.log('Puzzle AI Topic loaded:', cfg);
+            }
+            this.customPrompt = sessionStorage.getItem('aiCustomPrompt') || '';
+        } catch (e) { console.log('No AI topic config'); }
     }
 
     // ========================================================================
@@ -436,8 +453,40 @@ class PuzzleGame {
         this.isProcessing = true;
 
         try {
-            const operation = this.getRandomOperation();
+            // Try AI question first if topic is set
+            if (this.aiTopic) {
+                try {
+                    const difficulty = this.level <= 2 ? 'easy' : this.level <= 4 ? 'medium' : 'hard';
+                    const res = await fetch('/api/ai_question', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            topic: this.aiTopic.topic,
+                            subtopic: this.aiTopic.subtopic,
+                            difficulty: difficulty,
+                            previous_questions: this.previousQuestions.slice(-8),
+                            custom_prompt: this.customPrompt || ''
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success && data.options && data.options.length >= 4) {
+                        this.previousQuestions.push(data.question);
+                        this.currentQuestion = {
+                            question: data.question,
+                            correct_answer: data.answer,
+                            answers: data.options,
+                            question_id: 'ai_' + Date.now(),
+                            topic: data.subtopic,
+                            explanation: data.explanation
+                        };
+                        this.displayQuestion();
+                        return;
+                    }
+                } catch (e) { console.error('AI question failed:', e); }
+            }
 
+            // Fallback: backend API
+            const operation = this.getRandomOperation();
             const reqData = {
                 student_id: this.studentId,
                 class: this.gameConfig.class_level || 3,
@@ -445,33 +494,18 @@ class PuzzleGame {
                 game_type: 'puzzle',
                 theme: this.gameConfig.theme || 'default'
             };
-
-            // Cap difficulty based on level so players don't get 3-digit sums early on
-            if (this.level === 1) {
-                reqData.difficulty_override = 'easy';
-            }
-            // For level 2, cap at medium
-            else if (this.level === 2) {
-                // We'll let the backend use current adaptive difficulty, but we could clamp it here if API supported max_diff
-                // Since it doesn't, we will let it ride, but AI won't reach 'hard' as easily now.
-            }
+            if (this.level === 1) reqData.difficulty_override = 'easy';
 
             const res = await fetch('/api/generate_question', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(reqData)
             });
-
             const data = await res.json();
-
             if (data.success && data.question) {
                 this.currentQuestion = data.question;
                 this.displayQuestion();
             } else {
-                console.error('Failed to generate question:', data.error);
-                // Fallback to local generation if backend fails
                 this._generateLocalFallback();
             }
         } catch (error) {
@@ -538,13 +572,13 @@ class PuzzleGame {
         document.getElementById('submitBtn').disabled = true;
         this.isProcessing = true;
 
-        // If local fallback was used, check locally
-        if (this.currentQuestion.question_id && this.currentQuestion.question_id.startsWith('local_')) {
-            const isCorrect = this.selectedAnswer === this.currentQuestion.correct_answer;
+        // If local fallback or AI question, check locally
+        if (this.currentQuestion.question_id && (this.currentQuestion.question_id.startsWith('local_') || this.currentQuestion.question_id.startsWith('ai_'))) {
+            const isCorrect = String(this.selectedAnswer) === String(this.currentQuestion.correct_answer);
             if (isCorrect) {
                 document.querySelectorAll('.answer-option').forEach(opt => {
                     opt.style.pointerEvents = 'none';
-                    if (parseInt(opt.textContent) === this.currentQuestion.correct_answer) opt.classList.add('correct');
+                    if (opt.textContent.trim() == this.currentQuestion.correct_answer) opt.classList.add('correct');
                 });
                 this.handleCorrectAnswer();
             } else {
@@ -660,8 +694,11 @@ class PuzzleGame {
         this.streak = 0;
         this.score = Math.max(0, this.score - 5);
 
+        // Track wrong answer for AI report
+        this.wrongAnswers.push(`Q: ${this.currentQuestion?.question}, correct: ${this.currentQuestion?.correct_answer}`);
+
         // Build feedback message
-        let feedbackText = `✗ Wrong answer! Try again.`;
+        let feedbackText = `\u2717 Wrong answer! Try again.`;
         if (hintMessage) {
             feedbackText += ` ${hintMessage}`;
         }
@@ -669,6 +706,9 @@ class PuzzleGame {
             feedbackText += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
         }
         this.showFeedback(feedbackText, 'error');
+
+        // Fetch AI hint
+        this.fetchAIHint();
 
         // Update adaptive learning visuals
         this.updateAdaptiveUI(aiAnalysis);
@@ -690,6 +730,52 @@ class PuzzleGame {
             // Hide error feedback after reset
             this.hideFeedback();
         }, 1500);
+    }
+
+    async fetchAIHint() {
+        if (!this.currentQuestion) return;
+        try {
+            const res = await fetch('/api/ai_hint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: this.currentQuestion.question,
+                    wrong_answer: String(this.selectedAnswer || ''),
+                    correct_answer: String(this.currentQuestion.correct_answer),
+                    topic: this.aiTopic?.topicLabel || 'math'
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.hint) {
+                this.showFeedback('\ud83d\udca1 ' + data.hint, 'info');
+            }
+        } catch (e) { console.error('AI hint error:', e); }
+    }
+
+    async fetchAIReport() {
+        try {
+            const accuracy = this.totalQuestions > 0
+                ? Math.round((this.correctAnswers / this.totalQuestions) * 100) : 0;
+            const res = await fetch('/api/ai_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    score: this.score,
+                    total_questions: this.totalQuestions,
+                    correct: this.correctAnswers,
+                    wrong_answers: this.wrongAnswers.slice(-5),
+                    difficulty_progression: this.level <= 2 ? 'easy' : this.level <= 4 ? 'medium' : 'hard',
+                    topic: this.aiTopic?.topicLabel || 'Math',
+                    max_streak: this.maxStreak,
+                    game_name: 'Math Puzzle Quest'
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.report) {
+                return data.report;
+            }
+        } catch (e) { console.error('AI report error:', e); }
+        return null;
     }
 
     // ========================================================================

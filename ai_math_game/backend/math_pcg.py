@@ -1,7 +1,6 @@
 
 import random
 import json
-from google import genai
 
 class MathQuestionGenerator:
     def __init__(self, client=None):

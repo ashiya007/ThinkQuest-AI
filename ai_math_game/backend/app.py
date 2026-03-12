@@ -12,14 +12,14 @@ import json
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from google import genai
 
 # Load environment variables
 load_dotenv()
 
-# Configure the Gemini API client
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-MODEL_ID = "gemini-3-flash-preview"
+# Use the unified AI client (Groq first, Gemini fallback)
+from ai_client import UnifiedAIClient
+client = UnifiedAIClient()
+MODEL_ID = "gemini-3-flash-preview"  # Only used if Gemini is active
 
 # Add the backend directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

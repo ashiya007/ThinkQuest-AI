@@ -109,6 +109,11 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .feedback.info {
+            background: #e9d8fd;
+            color: #44337a;
+        }
     </style>
 </head>
 
@@ -162,6 +167,12 @@
                 this.isAnswered = false;
                 this.questionStartTime = null;
 
+                // AI Integration
+                this.aiTopic = null;
+                this.previousQuestions = [];
+                this.wrongAnswers = [];
+                this.loadAITopic();
+
                 // Persistent student ID via localStorage
                 this.studentId = localStorage.getItem('quiz_student_id');
                 if (!this.studentId) {
@@ -170,6 +181,17 @@
                 }
 
                 this.init();
+            }
+
+            loadAITopic() {
+                try {
+                    const cfg = JSON.parse(sessionStorage.getItem('aiTopicConfig') || '{}');
+                    if (cfg.topic) {
+                        this.aiTopic = cfg;
+                        console.log('Quiz AI Topic loaded:', cfg);
+                    }
+                    this.customPrompt = sessionStorage.getItem('aiCustomPrompt') || '';
+                } catch (e) { console.log('No AI topic config'); }
             }
 
             async init() {
@@ -210,12 +232,43 @@
             }
 
             async loadQuestion() {
+                // Try AI question first
+                if (this.aiTopic) {
+                    try {
+                        const difficulty = this.currentQuestionIndex < 3 ? 'easy' :
+                            this.currentQuestionIndex < 7 ? 'medium' : 'hard';
+                        const res = await fetch('/api/ai_question', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                topic: this.aiTopic.topic,
+                                subtopic: this.aiTopic.subtopic,
+                                difficulty: difficulty,
+                                previous_questions: this.previousQuestions.slice(-8),
+                                custom_prompt: this.customPrompt || ''
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success && data.options && data.options.length >= 4) {
+                            this.previousQuestions.push(data.question);
+                            this.currentQuestion = {
+                                question: data.question,
+                                correct_answer: data.answer,
+                                answers: data.options,
+                                question_id: 'ai_' + Date.now(),
+                                explanation: data.explanation
+                            };
+                            this.displayQuestion();
+                            return;
+                        }
+                    } catch (e) { console.error('AI question failed:', e); }
+                }
+
+                // Fallback: backend API
                 try {
                     const response = await fetch('/api/generate_question', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             student_id: this.studentId,
                             class: this.gameConfig.class_level,
@@ -223,17 +276,13 @@
                             game_type: 'quiz'
                         })
                     });
-
                     const data = await response.json();
-
                     if (data.success) {
                         this.currentQuestion = data.question;
                         this.displayQuestion();
                     } else {
-                        // Fallback to local question generation
                         this.generateLocalQuestion();
                     }
-
                 } catch (error) {
                     console.error('Error loading question:', error);
                     this.generateLocalQuestion();
@@ -281,9 +330,9 @@
                 const allButtons = document.querySelectorAll('.answer-btn');
                 allButtons.forEach(btn => { btn.disabled = true; });
 
-                // If local fallback, check locally
-                if (this.currentQuestion.question_id && this.currentQuestion.question_id.startsWith('local_')) {
-                    const isCorrect = answer === this.currentQuestion.correct_answer;
+                // If local fallback or AI-generated, check locally
+                if (this.currentQuestion.question_id && (this.currentQuestion.question_id.startsWith('local_') || this.currentQuestion.question_id.startsWith('ai_'))) {
+                    const isCorrect = String(answer) === String(this.currentQuestion.correct_answer);
                     this._handleResult(isCorrect, answer, buttonElement, this.currentQuestion.correct_answer);
                     return;
                 }
@@ -347,6 +396,10 @@
                         msg += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
                     }
                     this.showFeedback(msg, 'error');
+
+                    // Track wrong answer and fetch AI hint
+                    this.wrongAnswers.push(`Q: ${this.currentQuestion?.question}, correct: ${correctAnswer}`);
+                    this.fetchAIHint();
                 }
 
                 this.updateStats();
@@ -384,12 +437,35 @@
                 }
             }
 
-            showResults() {
+            async showResults() {
                 const accuracy = Math.round((this.correctAnswers / this.totalAnswered) * 100);
                 const grade = accuracy >= 90 ? 'A' :
                     accuracy >= 80 ? 'B' :
                         accuracy >= 70 ? 'C' :
                             accuracy >= 60 ? 'D' : 'F';
+
+                // Fetch AI report
+                let reportHtml = '<p style="color:#667eea;">🤖 Loading AI analysis...</p>';
+                try {
+                    const res = await fetch('/api/ai_report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            score: this.score,
+                            total_questions: this.totalAnswered,
+                            correct: this.correctAnswers,
+                            wrong_answers: this.wrongAnswers.slice(-5),
+                            topic: this.aiTopic?.topicLabel || 'Math',
+                            game_name: 'Quick Quiz'
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success && data.report) {
+                        reportHtml = `<div style="background:#f0f4ff; border:1px solid #667eea; border-radius:10px; padding:14px; margin:12px 0; font-size:13px; color:#2d3748; text-align:left; line-height:1.5;"><strong style="color:#667eea;">🤖 AI Analysis:</strong> ${data.report}</div>`;
+                    } else {
+                        reportHtml = '';
+                    }
+                } catch (e) { reportHtml = ''; }
 
                 const questionCard = document.querySelector('.question-card');
                 questionCard.innerHTML = `
@@ -400,8 +476,29 @@
                         <p><strong>Grade:</strong> <span style="font-size: 36px; color: ${grade === 'A' ? '#4caf50' : grade === 'F' ? '#f44336' : '#ff9800'}">${grade}</span></p>
                         <p><strong>Correct Answers:</strong> ${this.correctAnswers}/${this.totalAnswered}</p>
                     </div>
+                    ${reportHtml}
                     <button class="btn" onclick="resetQuiz()">Play Again</button>
                 `;
+            }
+
+            async fetchAIHint() {
+                if (!this.currentQuestion) return;
+                try {
+                    const res = await fetch('/api/ai_hint', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            question: this.currentQuestion.question,
+                            wrong_answer: 'incorrect',
+                            correct_answer: String(this.currentQuestion.correct_answer),
+                            topic: this.aiTopic?.topicLabel || 'math'
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success && data.hint) {
+                        this.showFeedback('💡 ' + data.hint, 'info');
+                    }
+                } catch (e) { console.error('AI hint error:', e); }
             }
 
             resetQuiz() {
@@ -410,6 +507,8 @@
                 this.correctAnswers = 0;
                 this.totalAnswered = 0;
                 this.isAnswered = false;
+                this.previousQuestions = [];
+                this.wrongAnswers = [];
 
                 this.loadQuestion();
             }
