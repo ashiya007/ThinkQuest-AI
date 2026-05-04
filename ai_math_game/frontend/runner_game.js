@@ -31,16 +31,14 @@ class RunnerGame {
         this.timerInterval = null;
         this.questionStartTime = null;
 
-        // ── Adaptive Difficulty ──
-        this.currentDifficulty = 'easy'; // Start on easy
-        this.consecutiveCorrect = 0;
-        this.consecutiveWrong = 0;
-        // Speed per difficulty level
-        this.difficultySpeed = { easy: 2.5, medium: 3.5, hard: 5 };
-        // Points per difficulty level
-        this.difficultyPoints = { easy: 10, medium: 15, hard: 25 };
-        // Wave gap per difficulty (more time on easy)
-        this.difficultyGap = { easy: 700, medium: 550, hard: 420 };
+        // ── Difficulty (driven by shared DDA engine) ─────────────────────
+        this.difficultySpeed  = { easy: 2.5, medium: 3.5, hard: 5.0 };
+        this.difficultyPoints = { easy: 10,  medium: 15,  hard: 25  };
+        this.difficultyGap    = { easy: 700, medium: 550, hard: 420 };
+        this.dda = new DifficultyEngine({
+            onIncrease: (level) => this._onDifficultyChange('increase', level),
+            onDecrease: (level, hint) => this._onDifficultyChange('decrease', level, hint)
+        });
 
         // Lanes
         this.lanes = [0, 1, 2]; // top, middle, bottom
@@ -58,7 +56,7 @@ class RunnerGame {
             emoji: '🏃'
         };
 
-        // Speed
+        // Speed (initial values; updated by DDA)
         this.gameSpeed = this.difficultySpeed.easy;
         this.speedMultiplier = 1;
         this.baseSpeed = 2.5;
@@ -132,16 +130,21 @@ class RunnerGame {
 
     async loadFromSession() {
         try {
-            const response = await fetch(`/api/session_config/${this.sessionId}`);
+            // Use the correct endpoint — /api/get_session/<id> returns { game_config: {...} }
+            const response = await fetch(`/api/get_session/${this.sessionId}`);
             const data = await response.json();
-            if (data.success) {
-                this.gameConfig = data.config;
+            if (data.success && data.game_config) {
+                this.gameConfig = data.game_config;
+                console.log('[Runner] Loaded game config from session:', this.gameConfig);
+                // Re-apply aiTopic from server config (in case sessionStorage lacked it)
+                this._applyTopicFromConfig();
                 return;
             }
         } catch (e) {
-            console.log('Session load failed, using defaults');
+            console.warn('[Runner] Session load failed, using sessionStorage or defaults:', e);
         }
-        this.loadDefaultConfig();
+        // Fallback: try sessionStorage (written by session_join.html)
+        await this.loadFromStorage();
     }
 
     async loadFromStorage() {
@@ -149,10 +152,29 @@ class RunnerGame {
         if (stored) {
             try {
                 this.gameConfig = JSON.parse(stored);
+                // Re-apply aiTopic in case topic info is embedded in gameConfig
+                this._applyTopicFromConfig();
                 return;
             } catch (e) { }
         }
         this.loadDefaultConfig();
+    }
+
+    /** Refresh this.aiTopic from gameConfig fields (topic/subtopic), after config is loaded. */
+    _applyTopicFromConfig() {
+        const cfg = this.gameConfig;
+        if (!cfg) return;
+        // If aiTopic not yet set from sessionStorage, try to build it from gameConfig
+        if (!this.aiTopic && cfg.topic) {
+            this.aiTopic = {
+                topic: cfg.topic,
+                subtopic: cfg.subtopic || '',
+                difficulty: cfg.difficulty || 'medium',
+                topicLabel: cfg.topicLabel || cfg.topic,
+                subtopicLabel: cfg.subtopicLabel || cfg.subtopic || ''
+            };
+            console.log('[Runner] aiTopic restored from gameConfig:', this.aiTopic);
+        }
     }
 
     loadDefaultConfig() {
@@ -319,7 +341,7 @@ class RunnerGame {
                     body: JSON.stringify({
                         topic: this.aiTopic.topic,
                         subtopic: this.aiTopic.subtopic,
-                        difficulty: this.currentDifficulty,
+                        difficulty: this.dda.difficulty,
                         previous_questions: this.previousQuestions.slice(-8),
                         custom_prompt: this.customPrompt || ''
                     })
@@ -382,7 +404,7 @@ class RunnerGame {
         if (!this.usedQuestionIndices) this.usedQuestionIndices = new Set();
 
         // ── Adaptive: filter by current difficulty ──
-        const targetDiff = this.currentDifficulty;
+        const targetDiff = this.dda.difficulty;
         const pool = questions
             .map((q, i) => ({ ...q, _idx: i }))
             .filter(q => q.difficulty === targetDiff && !this.usedQuestionIndices.has(q._idx));
@@ -568,36 +590,24 @@ class RunnerGame {
             // ── CORRECT ──
             this.correctAnswers++;
             this.comboCount++;
-            this.consecutiveCorrect++;
-            this.consecutiveWrong = 0;
 
-            // Scoring: base (by difficulty) + combo bonus + time bonus
-            const basePoints = this.difficultyPoints[this.currentDifficulty] || 10;
+            // Points: difficulty-based + combo bonus + speed bonus
+            const diff = this.dda.difficulty;
+            const basePoints = this.difficultyPoints[diff] || 10;
             const comboBonus = this.comboCount >= 5 ? 10 : this.comboCount >= 3 ? 5 : 0;
-            const timeBonus = timeTaken < 3 ? 5 : timeTaken < 6 ? 3 : 0;
-            const points = basePoints + comboBonus + timeBonus;
+            const timeBonus  = timeTaken < 3 ? 5 : timeTaken < 6 ? 3 : 0;
+            const points     = basePoints + comboBonus + timeBonus;
             this.score += points;
 
-            // ── Adaptive: promote difficulty after 3 consecutive correct ──
-            if (this.consecutiveCorrect >= 3) {
-                this.consecutiveCorrect = 0;
-                if (this.currentDifficulty === 'easy') {
-                    this.currentDifficulty = 'medium';
-                    this.showFeedback('📈 Difficulty UP → MEDIUM', 'success');
-                } else if (this.currentDifficulty === 'medium') {
-                    this.currentDifficulty = 'hard';
-                    this.showFeedback('📈 Difficulty UP → HARD', 'success');
-                }
-                // Update speed and wave gap for new difficulty
-                this.gameSpeed = this.difficultySpeed[this.currentDifficulty] * this.speedMultiplier;
-                this.waveGap = this.difficultyGap[this.currentDifficulty];
+            // Record in DDA engine
+            const ddaResult = this.dda.record(true, timeTaken);
+            if (!ddaResult.changed) {
+                this._applySpeedFromDDA(); // Apply any speed update
             }
 
-            // Green flash
+            // Green flash + particles
             this.flashColor = 'rgba(72, 187, 120, 0.3)';
             this.flashTimer = 15;
-
-            // Celebration particles
             for (let i = 0; i < 15; i++) {
                 this.particles.push({
                     x: this.player.x + 25, y: this.player.y,
@@ -607,48 +617,31 @@ class RunnerGame {
                 });
             }
 
-            // Combo floating text
             let comboMsg = `+${points}`;
             if (this.comboCount >= 5) comboMsg = `🔥 x${this.comboCount}! +${points}`;
             else if (this.comboCount >= 3) comboMsg = `⚡ x${this.comboCount} +${points}`;
             if (timeBonus > 0) comboMsg += ` ⏱`;
             this.comboTexts.push({ text: comboMsg, x: this.player.x + 60, y: this.player.y - 10, life: 1, color: '#48bb78' });
 
-            this.showFeedback(`✅ Correct! +${points} (${this.currentDifficulty.toUpperCase()})`, 'success');
-            this.submitAndFetchNext(gate.answer, true);
+            this.showFeedback(`✅ Correct! +${points}`, 'success');
+            this.submitAndFetchNext(gate.answer, true, timeTaken);
             this.gates.forEach(g => { if (Math.abs(g.x - gate.x) < 20) g.hit = true; });
 
         } else {
             // ── WRONG ──
             this.lives--;
             this.comboCount = 0;
-            this.consecutiveWrong++;
-            this.consecutiveCorrect = 0;
 
-            // No score penalty — just miss the points
-            // this.score stays the same
-
-            // ── Adaptive: demote difficulty after 2 consecutive wrong ──
-            if (this.consecutiveWrong >= 2) {
-                this.consecutiveWrong = 0;
-                if (this.currentDifficulty === 'hard') {
-                    this.currentDifficulty = 'medium';
-                    this.showFeedback('📉 Difficulty DOWN → MEDIUM', 'error');
-                } else if (this.currentDifficulty === 'medium') {
-                    this.currentDifficulty = 'easy';
-                    this.showFeedback('📉 Difficulty DOWN → EASY', 'error');
-                }
+            // Record in DDA engine
+            const ddaResult = this.dda.record(false, timeTaken);
+            if (!ddaResult.changed) {
+                this._applySpeedFromDDA();
             }
-
-            // ── SLOW DOWN on wrong — recovery mechanic ──
-            this.gameSpeed = this.difficultySpeed[this.currentDifficulty] * this.speedMultiplier;
-            this.waveGap = this.difficultyGap[this.currentDifficulty];
 
             // Red flash + shake
             this.flashColor = 'rgba(245, 101, 101, 0.3)';
             this.flashTimer = 20;
             this.shakeTimer = 15;
-
             for (let i = 0; i < 10; i++) {
                 this.particles.push({
                     x: this.player.x + 25, y: this.player.y,
@@ -656,28 +649,46 @@ class RunnerGame {
                     color: '#f56565', life: 1, size: Math.random() * 4 + 2
                 });
             }
-
             this.comboTexts.push({
                 text: `❌ Answer: ${this.currentQuestion?.correct_answer}`,
                 x: this.player.x + 60, y: this.player.y - 10, life: 1.5, color: '#f56565'
             });
 
-            this.showFeedback(`❌ Wrong! Answer was: ${this.currentQuestion?.correct_answer}`, 'error');
+            // Show hint if DDA demoted
+            const feedbackMsg = ddaResult.hint
+                ? `❌ Wrong! ${ddaResult.hint}`
+                : `❌ Wrong! Answer: ${this.currentQuestion?.correct_answer}`;
+            this.showFeedback(feedbackMsg, 'error');
 
-            // Track wrong answers for AI report
             this.wrongAnswers.push(`Q: ${this.currentQuestion?.question}, answered: ${gate.answer}, correct: ${this.currentQuestion?.correct_answer}`);
-
-            // Fetch AI hint
             this.fetchAIHint();
 
             if (this.lives <= 0) { this.endGame(false); return; }
 
-            this.submitAndFetchNext(gate.answer, false);
+            this.submitAndFetchNext(gate.answer, false, timeTaken);
             this.gates.forEach(g => { if (Math.abs(g.x - gate.x) < 20) g.hit = true; });
         }
 
         this.wavesPassed++;
         this.updateStats();
+    }
+
+    /** Sync game speed and wave gap to current DDA level. */
+    _applySpeedFromDDA() {
+        const d = this.dda.difficulty;
+        this.gameSpeed = this.difficultySpeed[d] * (this.speedMultiplier || 1);
+        this.waveGap   = this.difficultyGap[d];
+    }
+
+    /** Called by DDA engine when difficulty changes. */
+    _onDifficultyChange(direction, level, hint = null) {
+        this._applySpeedFromDDA();
+        if (direction === 'increase') {
+            this.showFeedback(`📈 Challenge level UP → ${level.toUpperCase()}!`, 'success');
+        } else {
+            const msg = hint ? `📉 Adjusting level → ${level}. ${hint}` : `📉 Level adjusted → ${level.toUpperCase()}`;
+            this.showFeedback(msg, 'info');
+        }
     }
 
     async submitAndFetchNext(answer, isCorrect) {
@@ -857,10 +868,10 @@ class RunnerGame {
             // Difficulty badge (left side)
             const diffColors = { easy: '#48bb78', medium: '#ecc94b', hard: '#f56565' };
             const diffEmoji = { easy: '🟢', medium: '🟡', hard: '🔴' };
-            ctx.fillStyle = diffColors[this.currentDifficulty] || '#fff';
+            ctx.fillStyle = diffColors[this.dda.difficulty] || '#fff';
             ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'left';
-            ctx.fillText(`${diffEmoji[this.currentDifficulty]} ${this.currentDifficulty.toUpperCase()}`, 12, 35);
+            ctx.fillText(`${diffEmoji[this.dda.difficulty] || '🎯'} ${this.dda.difficulty.toUpperCase()}`, 12, 35);
 
             // Question text (center)
             ctx.fillStyle = '#ffd700';
@@ -1022,7 +1033,7 @@ class RunnerGame {
                     total_questions: this.totalQuestions,
                     correct: this.correctAnswers,
                     wrong_answers: this.wrongAnswers.slice(-5),
-                    difficulty_progression: this.currentDifficulty,
+                    difficulty_progression: this.dda.difficulty,
                     topic: this.aiTopic?.topicLabel || 'Trigonometry',
                     max_streak: this.comboCount,
                     game_name: 'Math Runner'

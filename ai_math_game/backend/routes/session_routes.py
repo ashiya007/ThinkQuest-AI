@@ -1,6 +1,6 @@
 """
 Session Management Routes Blueprint
-Handles: orchestrator session create/join/stats/end, themes, level generation, play routing
+Handles: orchestrator session create/join/stats/end, score updates, themes, level generation, play routing
 """
 
 from flask import Blueprint, request, jsonify, send_from_directory
@@ -14,9 +14,17 @@ session_bp = Blueprint('sessions', __name__)
 def init_session_routes(question_generator, student_model, prompt_parser, game_sessions, client, MODEL_ID, static_folder):
     """Initialize session routes with shared dependencies."""
 
+    # -------------------------------------------------------------------------
+    # SESSION CRUD
+    # -------------------------------------------------------------------------
+
     @session_bp.route('/api/create_session', methods=['POST'])
     def create_session():
-        """Creates a new game session from the orchestrator configuration."""
+        """Creates a new game session from the orchestrator configuration.
+
+        Accepts an optional 'session_code' field so the frontend can supply
+        the 6-char code it generated.  Falls back to a UUID slice if not given.
+        """
         try:
             data = request.get_json()
             game_config = data.get('game_config', {})
@@ -24,25 +32,36 @@ def init_session_routes(question_generator, student_model, prompt_parser, game_s
             if not game_config:
                 return jsonify({'error': 'Game configuration is required'}), 400
 
-            session_id = str(uuid.uuid4())[:8].upper()
+            # Prefer the caller-supplied code; fall back to uuid slice
+            raw_code = data.get('session_code', '')
+            session_id = raw_code.strip().upper() if raw_code else str(uuid.uuid4())[:6].upper()
+
+            # Reject obviously bad codes
+            if not session_id.isalnum() or len(session_id) < 4:
+                return jsonify({'error': 'Invalid session code format'}), 400
+
+            # If this session already exists and is still active, reject
+            existing = game_sessions.get(session_id)
+            if existing and existing.get('status') not in ('completed', 'expired'):
+                return jsonify({'error': 'Session code already in use. Try a different one.'}), 409
 
             session = {
                 'session_id': session_id,
                 'game_config': game_config,
                 'created_at': datetime.now().isoformat(),
                 'status': 'waiting',
-                'students': [],
+                'players': [],          # list of {player_name, student_id, score, correct, total}
                 'questions_served': 0,
                 'total_correct': 0
             }
 
-            game_sessions[session_id] = session
+            game_sessions.set(session_id, session)
 
             return jsonify({
                 'success': True,
                 'session_id': session_id,
                 'session': session,
-                'join_url': f'/play/{session_id}'
+                'join_url': f'/session_join.html?code={session_id}'
             })
 
         except Exception as e:
@@ -53,14 +72,14 @@ def init_session_routes(question_generator, student_model, prompt_parser, game_s
         """Retrieves session configuration for game engines."""
         try:
             session_id = session_id.upper()
+            session = game_sessions.get(session_id)
 
-            if session_id not in game_sessions:
+            if session is None:
                 return jsonify({'error': 'Session not found', 'valid': False}), 404
-
-            session = game_sessions[session_id]
 
             if session['status'] == 'waiting':
                 session['status'] = 'active'
+                game_sessions.update(session_id, session)
 
             return jsonify({
                 'success': True,
@@ -74,29 +93,69 @@ def init_session_routes(question_generator, student_model, prompt_parser, game_s
 
     @session_bp.route('/api/join_session', methods=['POST'])
     def join_session():
-        """Student joins a session with their ID."""
+        """Student joins a session by providing a session code and their name."""
         try:
             data = request.get_json()
-            session_id = data.get('session_id', '').upper()
+            session_id = data.get('session_id', '').strip().upper()
+            player_name = data.get('player_name', '').strip()
             student_id = data.get('student_id', '')
 
-            if not session_id or not student_id:
-                return jsonify({'error': 'Session ID and Student ID required'}), 400
+            # --- Validation ---
+            if not session_id:
+                return jsonify({'error': 'Session code is required'}), 400
+            if not session_id.isalnum() or len(session_id) < 4:
+                return jsonify({'error': 'Invalid session code format (must be 4-8 alphanumeric characters)'}), 400
+            if not player_name:
+                return jsonify({'error': 'Player name is required'}), 400
+            if len(player_name) > 32:
+                return jsonify({'error': 'Player name must be 32 characters or fewer'}), 400
 
-            if session_id not in game_sessions:
-                return jsonify({'error': 'Session not found'}), 404
+            session = game_sessions.get(session_id)
 
-            session = game_sessions[session_id]
+            if session is None:
+                return jsonify({'error': 'Session not found. Check your code and try again.'}), 404
 
-            if student_id not in session['students']:
-                session['students'].append(student_id)
+            if session['status'] == 'completed':
+                return jsonify({'error': 'This session has ended.'}), 410
 
-            student_model.add_student(student_id, session['game_config'].get('class_level', 3))
+            if session['status'] == 'expired':
+                return jsonify({'error': 'This session has expired.'}), 410
+
+            # Generate a stable student_id based on player name + session to avoid duplicates
+            if not student_id:
+                student_id = f"s_{session_id}_{player_name.lower().replace(' ', '_')}"
+
+            # Update player list — upsert by student_id
+            players = session.get('players', [])
+            existing_player = next((p for p in players if p['student_id'] == student_id), None)
+            if not existing_player:
+                players.append({
+                    'player_name': player_name,
+                    'student_id': student_id,
+                    'score': 0,
+                    'correct': 0,
+                    'total': 0,
+                    'joined_at': datetime.now().isoformat()
+                })
+                session['players'] = players
+                if session['status'] == 'waiting':
+                    session['status'] = 'active'
+                game_sessions.update(session_id, session)
+
+            # Register student in the learning database
+            try:
+                student_model.add_student(student_id, session['game_config'].get('class_level', 3))
+            except Exception:
+                pass  # Non-fatal; carry on
 
             return jsonify({
                 'success': True,
+                'session_id': session_id,
+                'student_id': student_id,
+                'player_name': player_name,
                 'session': session,
-                'game_config': session['game_config']
+                'game_config': session['game_config'],
+                'game_url': _game_url(session)
             })
 
         except Exception as e:
@@ -104,54 +163,112 @@ def init_session_routes(question_generator, student_model, prompt_parser, game_s
 
     @session_bp.route('/api/session_stats/<session_id>', methods=['GET'])
     def session_stats(session_id):
-        """Get real-time stats for a session (for teacher dashboard)."""
+        """Get real-time player stats for a session (teacher dashboard polls this)."""
         try:
             session_id = session_id.upper()
+            session = game_sessions.get(session_id)
 
-            if session_id not in game_sessions:
+            if session is None:
                 return jsonify({'error': 'Session not found'}), 404
 
-            session = game_sessions[session_id]
+            players = session.get('players', [])
 
-            student_stats = []
-            for sid in session['students']:
-                perf = student_model.get_student_performance(sid)
-                student_stats.append({
-                    'student_id': sid,
-                    'accuracy': perf.get('accuracy', 0),
-                    'questions_answered': perf.get('total_questions', 0)
-                })
+            # Sort by score descending for leaderboard
+            sorted_players = sorted(players, key=lambda p: p.get('score', 0), reverse=True)
 
             return jsonify({
                 'success': True,
                 'session_id': session_id,
                 'status': session['status'],
-                'student_count': len(session['students']),
-                'students': student_stats,
-                'questions_served': session['questions_served']
+                'player_count': len(players),
+                'players': sorted_players,
+                'questions_served': session.get('questions_served', 0),
+                'game_config': session.get('game_config', {})
             })
 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    @session_bp.route('/api/update_player_score', methods=['POST'])
+    def update_player_score():
+        """Games call this endpoint to push live score updates to the teacher dashboard."""
+        try:
+            data = request.get_json()
+            session_id = data.get('session_id', '').strip().upper()
+            student_id = data.get('student_id', '').strip()
+            score = int(data.get('score', 0))
+            correct = int(data.get('correct', 0))
+            total = int(data.get('total', 0))
+
+            if not session_id or not student_id:
+                return jsonify({'error': 'session_id and student_id are required'}), 400
+
+            session = game_sessions.get(session_id)
+            if session is None:
+                return jsonify({'error': 'Session not found'}), 404
+
+            players = session.get('players', [])
+            for player in players:
+                if player['student_id'] == student_id:
+                    player['score'] = score
+                    player['correct'] = correct
+                    player['total'] = total
+                    break
+
+            session['players'] = players
+            game_sessions.update(session_id, session)
+
+            return jsonify({'success': True})
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @session_bp.route('/api/validate_session/<session_id>', methods=['GET'])
+    def validate_session(session_id):
+        """Lightweight endpoint: returns whether a session code is valid and joinable."""
+        try:
+            session_id = session_id.strip().upper()
+            if not session_id.isalnum() or len(session_id) < 4:
+                return jsonify({'valid': False, 'error': 'Invalid code format'}), 200
+
+            session = game_sessions.get(session_id)
+            if session is None:
+                return jsonify({'valid': False, 'error': 'Session not found'}), 200
+            if session['status'] == 'completed':
+                return jsonify({'valid': False, 'error': 'Session has ended'}), 200
+            if session['status'] == 'expired':
+                return jsonify({'valid': False, 'error': 'Session has expired'}), 200
+
+            return jsonify({
+                'valid': True,
+                'session_id': session_id,
+                'player_count': len(session.get('players', [])),
+                'game_config': session.get('game_config', {})
+            })
+        except Exception as e:
+            return jsonify({'valid': False, 'error': str(e)}), 200
 
     @session_bp.route('/api/end_session/<session_id>', methods=['POST'])
     def end_session(session_id):
         """Teacher ends a session."""
         try:
             session_id = session_id.upper()
+            session = game_sessions.get(session_id)
 
-            if session_id not in game_sessions:
+            if session is None:
                 return jsonify({'error': 'Session not found'}), 404
 
-            game_sessions[session_id]['status'] = 'completed'
+            session['status'] = 'completed'
+            game_sessions.update(session_id, session)
 
-            return jsonify({
-                'success': True,
-                'message': 'Session ended'
-            })
+            return jsonify({'success': True, 'message': 'Session ended'})
 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    # -------------------------------------------------------------------------
+    # THEMES & AI LEVEL GENERATION
+    # -------------------------------------------------------------------------
 
     @session_bp.route('/api/get_themes', methods=['GET'])
     def get_themes():
@@ -256,7 +373,7 @@ Return ONLY the JSON object, no explanation.
                     "operations": operations,
                     "spawn_rate": max(1000, 3500 - (current_level * 150)),
                     "bonus_multiplier": round(1 + (current_level * 0.1), 1),
-                    "level_message": f"Level {current_level} - You've got this!"
+                    "level_message": f"Level {current_level} — You've got this!"
                 }
 
                 return jsonify({
@@ -267,24 +384,45 @@ Return ONLY the JSON object, no explanation.
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    # -------------------------------------------------------------------------
+    # PLAY ROUTING
+    # -------------------------------------------------------------------------
+
     @session_bp.route('/play/<session_id>')
     def play_session(session_id):
         """Serve the appropriate game based on session configuration."""
         session_id = session_id.upper()
+        session = game_sessions.get(session_id)
 
-        if session_id not in game_sessions:
+        if session is None:
             return "Session not found", 404
 
-        session = game_sessions[session_id]
         game_type = session['game_config'].get('game_type', 'puzzle')
 
         game_templates = {
-            'runner': 'runner_game.html',
-            'shooter': 'alien_blaster.html',
-            'quiz': 'quiz_game.html',
+            'runner':   'runner_game.html',
+            'shooter':  'alien_blaster.html',
+            'quiz':     'quiz_game.html',
             'kangaroo': 'kang.html'
         }
         template = game_templates.get(game_type, 'puzzle_game.html')
         return send_from_directory(static_folder, template)
 
     return session_bp
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def _game_url(session):
+    """Return the in-game URL for a session."""
+    game_type = session['game_config'].get('game_type', 'puzzle')
+    game_templates = {
+        'runner':   'runner_game.html',
+        'shooter':  'alien_blaster.html',
+        'quiz':     'quiz_game.html',
+        'kangaroo': 'kang.html'
+    }
+    template = game_templates.get(game_type, 'puzzle_game.html')
+    return f'/{template}'

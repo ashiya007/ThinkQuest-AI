@@ -119,7 +119,7 @@
 
 <body>
     <div class="quiz-container">
-        <h1>📝 Math Quiz Game</h1>
+        <h1> Math Quiz Game</h1>
 
         <div class="stats">
             <div class="stat">
@@ -154,6 +154,7 @@
     </div>
 
     <script src="question_fallback.js"></script>
+    <script src="adaptive_difficulty.js"></script>
     <script>
         class QuizGame {
             constructor() {
@@ -173,12 +174,25 @@
                 this.wrongAnswers = [];
                 this.loadAITopic();
 
-                // Persistent student ID via localStorage
-                this.studentId = localStorage.getItem('quiz_student_id');
+                // ── DDA: shared adaptive difficulty engine ──
+                this.dda = new DifficultyEngine({
+                    promoteAfter: 3,
+                    demoteAfter:  2,
+                    onIncrease: (lvl) => this._showAdaptiveToast('increase', lvl),
+                    onDecrease: (lvl, hint) => this._showAdaptiveToast('decrease', lvl, hint)
+                });
+
+                // Persistent student ID — prefer session join data, fall back to localStorage
+                this.studentId = sessionStorage.getItem('tq_student_id')
+                    || localStorage.getItem('quiz_student_id');
                 if (!this.studentId) {
                     this.studentId = 'quiz_' + Date.now();
                     localStorage.setItem('quiz_student_id', this.studentId);
                 }
+
+                // Session context (set by session_join.html)
+                this.sessionId   = sessionStorage.getItem('tq_session_id') || null;
+                this.playerName  = sessionStorage.getItem('tq_player_name') || 'Player';
 
                 this.init();
             }
@@ -210,6 +224,19 @@
                     };
                 }
 
+                // Restore aiTopic from gameConfig if not set from sessionStorage
+                // (covers the case where game was opened directly without going through teacher_prompt)
+                if (!this.aiTopic && this.gameConfig.topic) {
+                    this.aiTopic = {
+                        topic: this.gameConfig.topic,
+                        subtopic: this.gameConfig.subtopic || '',
+                        difficulty: this.gameConfig.difficulty || 'medium',
+                        topicLabel: this.gameConfig.topicLabel || this.gameConfig.topic,
+                        subtopicLabel: this.gameConfig.subtopicLabel || this.gameConfig.subtopic || ''
+                    };
+                    console.log('[Quiz] aiTopic restored from gameConfig:', this.aiTopic);
+                }
+
                 // Register student with backend
                 await this.registerStudent();
 
@@ -235,8 +262,8 @@
                 // Try AI question first
                 if (this.aiTopic) {
                     try {
-                        const difficulty = this.currentQuestionIndex < 3 ? 'easy' :
-                            this.currentQuestionIndex < 7 ? 'medium' : 'hard';
+                        // Difficulty driven by DDA engine, not question index
+                        const difficulty = this.dda.difficulty;
                         const res = await fetch('/api/ai_question', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -266,14 +293,21 @@
 
                 // Fallback: backend API
                 try {
+                    // Resolve operation: prefer operations array, then legacy math_topic, then subtopic
+                    const operation = (this.gameConfig.operations || [])[0]
+                        || this.gameConfig.math_topic
+                        || this.gameConfig.subtopic
+                        || 'addition';
+
                     const response = await fetch('/api/generate_question', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             student_id: this.studentId,
-                            class: this.gameConfig.class_level,
-                            operation: this.gameConfig.math_topic || this.gameConfig.operations?.[0] || 'addition',
-                            game_type: 'quiz'
+                            class: this.gameConfig.class_level || 3,
+                            operation: operation,
+                            game_type: 'quiz',
+                            theme: this.gameConfig.theme || 'default'
                         })
                     });
                     const data = await response.json();
@@ -290,7 +324,11 @@
             }
 
             generateLocalQuestion() {
-                const op = this.gameConfig.math_topic || this.gameConfig.operations?.[0] || 'addition';
+                // Resolve operation with same priority as loadQuestion()
+                const op = (this.gameConfig.operations || [])[0]
+                    || this.gameConfig.math_topic
+                    || this.gameConfig.subtopic
+                    || 'addition';
                 this.currentQuestion = generateLocalMathQuestion(op, this.gameConfig.difficulty || 'easy');
                 this.displayQuestion();
             }
@@ -355,12 +393,12 @@
                         this._handleResult(data.is_correct, answer, buttonElement, data.correct_answer, data.hint, data.ai_analysis);
                     } else {
                         // API error fallback
-                        this.showFeedback('⚠️ Server error. Moving on...', 'error');
+                        this.showFeedback(' Server error. Moving on...', 'error');
                         document.getElementById('nextBtn').style.display = 'inline-block';
                     }
                 } catch (e) {
                     console.error('Submit failed:', e);
-                    this.showFeedback('⚠️ Connection error. Moving on...', 'error');
+                    this.showFeedback(' Connection error. Moving on...', 'error');
                     document.getElementById('nextBtn').style.display = 'inline-block';
                 }
             }
@@ -377,35 +415,57 @@
                     }
                 });
 
+                // Record answer in DDA engine
+                const timeTaken = this.questionStartTime ? (Date.now() - this.questionStartTime) / 1000 : 15;
+                const ddaResult = this.dda.record(isCorrect, timeTaken);
+
                 if (isCorrect) {
                     this.correctAnswers++;
                     this.score += 10;
-                    let msg = '✅ Correct! Well done!';
-                    if (aiAnalysis && aiAnalysis.recommendation === 'increase') {
-                        msg += ` 🔥 Difficulty increased to ${aiAnalysis.new_difficulty}!`;
-                    }
-                    this.showFeedback(msg, 'success');
+                    this.showFeedback('✓ Correct! Well done!', 'success');
                 } else {
-                    let msg = `❌ Incorrect!`;
-                    if (hint) {
+                    const ddaHint = ddaResult.hint;
+                    let msg = `✗ Incorrect!`;
+                    if (ddaHint) {
+                        msg += ` ${ddaHint}`;
+                    } else if (hint) {
                         msg += ` ${hint}`;
                     } else {
                         msg += ` The correct answer was ${correctAnswer}`;
                     }
-                    if (aiAnalysis && aiAnalysis.recommendation === 'decrease') {
-                        msg += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
-                    }
                     this.showFeedback(msg, 'error');
-
-                    // Track wrong answer and fetch AI hint
                     this.wrongAnswers.push(`Q: ${this.currentQuestion?.question}, correct: ${correctAnswer}`);
                     this.fetchAIHint();
                 }
 
                 this.updateStats();
-
-                // Show next button
                 document.getElementById('nextBtn').style.display = 'inline-block';
+            }
+
+            /** Show adaptive difficulty toast notification */
+            _showAdaptiveToast(direction, level, hint = null) {
+                let toast = document.getElementById('quizAdaptiveToast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'quizAdaptiveToast';
+                    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-120px);padding:12px 28px;border-radius:14px;font-weight:bold;font-size:1rem;z-index:2000;pointer-events:none;transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1),opacity 0.4s;opacity:0;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:white;text-align:center;';
+                    document.body.appendChild(toast);
+                }
+                const styles = {
+                    increase: 'background:linear-gradient(135deg,#ed8936,#dd6b20)',
+                    decrease: 'background:linear-gradient(135deg,#4299e1,#3182ce)'
+                };
+                const icons  = { increase: '📈', decrease: '📉' };
+                const labels = { increase: 'Level UP',    decrease: 'Easing Level' };
+                toast.style.background = styles[direction].replace('background:', '');
+                toast.innerHTML = `${icons[direction]} ${labels[direction]} → <strong>${level.toUpperCase()}</strong>`;
+                if (hint && direction === 'decrease') toast.innerHTML += `<div style="font-size:0.82em;opacity:0.9;margin-top:4px">${hint}</div>`;
+                toast.style.transform = 'translateX(-50%) translateY(0)';
+                toast.style.opacity   = '1';
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(-50%) translateY(-120px)';
+                    toast.style.opacity   = '0';
+                }, 3000);
             }
 
             showFeedback(message, type) {
@@ -425,6 +485,26 @@
 
                 const progress = ((this.currentQuestionIndex + 1) / this.totalQuestions) * 100;
                 document.getElementById('progressBar').style.width = `${progress}%`;
+
+                // Push score to teacher dashboard if in a session
+                this.pushScoreUpdate();
+            }
+
+            async pushScoreUpdate() {
+                if (!this.sessionId) return;
+                try {
+                    await fetch('/api/update_player_score', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            session_id: this.sessionId,
+                            student_id: this.studentId,
+                            score: this.score,
+                            correct: this.correctAnswers,
+                            total: this.totalAnswered
+                        })
+                    });
+                } catch { /* non-fatal */ }
             }
 
             async nextQuestion() {
@@ -445,7 +525,7 @@
                             accuracy >= 60 ? 'D' : 'F';
 
                 // Fetch AI report
-                let reportHtml = '<p style="color:#667eea;">🤖 Loading AI analysis...</p>';
+                let reportHtml = '<p style="color:#667eea;"> Loading AI analysis...</p>';
                 try {
                     const res = await fetch('/api/ai_report', {
                         method: 'POST',
@@ -461,7 +541,7 @@
                     });
                     const data = await res.json();
                     if (data.success && data.report) {
-                        reportHtml = `<div style="background:#f0f4ff; border:1px solid #667eea; border-radius:10px; padding:14px; margin:12px 0; font-size:13px; color:#2d3748; text-align:left; line-height:1.5;"><strong style="color:#667eea;">🤖 AI Analysis:</strong> ${data.report}</div>`;
+                        reportHtml = `<div style="background:#f0f4ff; border:1px solid #667eea; border-radius:10px; padding:14px; margin:12px 0; font-size:13px; color:#2d3748; text-align:left; line-height:1.5;"><strong style="color:#667eea;"> AI Analysis:</strong> ${data.report}</div>`;
                     } else {
                         reportHtml = '';
                     }
@@ -469,7 +549,7 @@
 
                 const questionCard = document.querySelector('.question-card');
                 questionCard.innerHTML = `
-                    <h2>🎉 Quiz Complete!</h2>
+                    <h2> Quiz Complete!</h2>
                     <div style="font-size: 24px; margin: 20px 0;">
                         <p><strong>Final Score:</strong> ${this.score}</p>
                         <p><strong>Accuracy:</strong> ${accuracy}%</p>
@@ -477,7 +557,13 @@
                         <p><strong>Correct Answers:</strong> ${this.correctAnswers}/${this.totalAnswered}</p>
                     </div>
                     ${reportHtml}
-                    <button class="btn" onclick="resetQuiz()">Play Again</button>
+                    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;">
+                      <button class="btn" onclick="resetQuiz()">Play Again</button>
+                      <a href="/analytics_dashboard.html?student_id=${encodeURIComponent(this.studentId)}"
+                         style="display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;font-weight:700;font-size:14px;text-decoration:none;">
+                         View My Analytics
+                      </a>
+                    </div>
                 `;
             }
 
@@ -496,7 +582,7 @@
                     });
                     const data = await res.json();
                     if (data.success && data.hint) {
-                        this.showFeedback('💡 ' + data.hint, 'info');
+                        this.showFeedback(' ' + data.hint, 'info');
                     }
                 } catch (e) { console.error('AI hint error:', e); }
             }

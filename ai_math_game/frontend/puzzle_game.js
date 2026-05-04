@@ -66,7 +66,16 @@ class PuzzleGame {
         this.aiTopic = null;
         this.previousQuestions = [];
         this.wrongAnswers = [];
+        this.customPrompt = '';
         this.loadAITopic();
+
+        // ── DDA: shared adaptive difficulty engine ──
+        this.dda = new DifficultyEngine({
+            promoteAfter: 4,  // puzzle is turn-based, so promote a bit slower
+            demoteAfter: 2,
+            onIncrease: (level) => this._showAdaptiveToast('increase', level),
+            onDecrease: (level, hint) => this._showAdaptiveToast('decrease', level, hint)
+        });
 
         this.init();
     }
@@ -105,37 +114,55 @@ class PuzzleGame {
 
     async loadFromSession() {
         try {
-            this.studentId = prompt('Enter your Student ID:') || 'puzzle_' + Date.now();
-
-            const res = await fetch('/api/join_session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: this.sessionId,
-                    student_id: this.studentId
-                })
-            });
-
+            // Use the read-only get_session endpoint — no player_name required
+            const res = await fetch(`/api/get_session/${this.sessionId}`);
             const data = await res.json();
-            if (data.success) {
+            if (data.success && data.game_config) {
                 this.gameConfig = data.game_config;
-            } else {
-                this.loadDefaultConfig();
+                console.log('[Puzzle] Loaded game config from session:', this.gameConfig);
+                // Restore student_id from sessionStorage if available (set by session_join.html)
+                const savedId = sessionStorage.getItem('tq_student_id');
+                if (savedId) this.studentId = savedId;
+                // Re-apply aiTopic from server config (non-basic topics need this)
+                this._applyTopicFromConfig();
+                return;
             }
         } catch (e) {
-            console.error('Session load failed:', e);
-            this.loadDefaultConfig();
+            console.warn('[Puzzle] Session load failed, trying sessionStorage:', e);
         }
+        // Fallback: read from sessionStorage (written by session_join.html)
+        await this.loadFromStorage();
     }
 
     async loadFromStorage() {
         const configData = sessionStorage.getItem('gameConfig');
         if (configData) {
             this.gameConfig = JSON.parse(configData);
+            // Re-apply aiTopic in case topic info is embedded in gameConfig
+            this._applyTopicFromConfig();
         } else {
             this.loadDefaultConfig();
         }
-        this.studentId = 'puzzle_' + Date.now();
+        if (!this.studentId || this.studentId.startsWith('puzzle_')) {
+            const savedId = sessionStorage.getItem('tq_student_id');
+            this.studentId = savedId || ('puzzle_' + Date.now());
+        }
+    }
+
+    /** Rebuild this.aiTopic from gameConfig.topic/subtopic if not already set from sessionStorage. */
+    _applyTopicFromConfig() {
+        const cfg = this.gameConfig;
+        if (!cfg) return;
+        if (!this.aiTopic && cfg.topic) {
+            this.aiTopic = {
+                topic: cfg.topic,
+                subtopic: cfg.subtopic || '',
+                difficulty: cfg.difficulty || 'medium',
+                topicLabel: cfg.topicLabel || cfg.topic,
+                subtopicLabel: cfg.subtopicLabel || cfg.subtopic || ''
+            };
+            console.log('[Puzzle] aiTopic restored from gameConfig:', this.aiTopic);
+        }
     }
 
     loadDefaultConfig() {
@@ -456,7 +483,8 @@ class PuzzleGame {
             // Try AI question first if topic is set
             if (this.aiTopic) {
                 try {
-                    const difficulty = this.level <= 2 ? 'easy' : this.level <= 4 ? 'medium' : 'hard';
+                    // Difficulty comes from DDA engine (not level heuristic)
+                    const difficulty = this.dda.difficulty;
                     const res = await fetch('/api/ai_question', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -518,7 +546,7 @@ class PuzzleGame {
 
     _generateLocalFallback() {
         const operation = this.getRandomOperation();
-        const difficulty = this.currentDifficulty || 'easy';
+        const difficulty = this.dda.difficulty;
         this.currentQuestion = generateLocalMathQuestion(operation, difficulty);
         this.displayQuestion();
     }
@@ -639,20 +667,17 @@ class PuzzleGame {
         this.streak++;
         this.maxStreak = Math.max(this.maxStreak, this.streak);
 
+        // Record in DDA engine
+        const timeTaken = this.questionStartTime ? (Date.now() - this.questionStartTime) / 1000 : 10;
+        this.dda.record(true, timeTaken);
+
         // Calculate points with streak and level bonus
         const basePoints = 10 * this.level;
         const streakBonus = Math.min(this.streak, 10);
         const points = Math.round(basePoints * (1 + streakBonus * 0.1));
         this.score += points;
 
-        // Show correct message, check if difficulty increased
-        let feedbackMessage = `✓ Correct! +${points} points`;
-        if (aiAnalysis && aiAnalysis.recommendation === 'increase') {
-            feedbackMessage += ` | 🔥 Difficulty Increased to ${aiAnalysis.new_difficulty}`;
-        }
-        this.showFeedback(feedbackMessage, 'success');
-
-        // Update adaptive learning visuals
+        this.showFeedback(`✓ Correct! +${points} points`, 'success');
         this.updateAdaptiveUI(aiAnalysis);
 
         // Unlock tile and AUTO-MOVE
@@ -672,17 +697,13 @@ class PuzzleGame {
                 setTimeout(() => tile.style.transform = '', 300);
             }
 
-            // Store target and clear
             const moveToX = targetX;
             const moveToY = targetY;
             this.targetTile = null;
 
-            // AUTO-MOVE after short delay
             setTimeout(() => {
                 this.moveCharacter(moveToX, moveToY);
                 this.updateUI();
-
-                // Clear question area for next auto-gen
                 document.getElementById('questionText').textContent = 'Loading next question...';
                 document.getElementById('answerGrid').innerHTML = '';
                 document.getElementById('submitBtn').disabled = true;
@@ -694,42 +715,43 @@ class PuzzleGame {
         this.streak = 0;
         this.score = Math.max(0, this.score - 5);
 
-        // Track wrong answer for AI report
+        // Record in DDA engine
+        const timeTaken = this.questionStartTime ? (Date.now() - this.questionStartTime) / 1000 : 15;
+        const ddaResult = this.dda.record(false, timeTaken);
+
         this.wrongAnswers.push(`Q: ${this.currentQuestion?.question}, correct: ${this.currentQuestion?.correct_answer}`);
 
-        // Build feedback message
-        let feedbackText = `\u2717 Wrong answer! Try again.`;
-        if (hintMessage) {
-            feedbackText += ` ${hintMessage}`;
-        }
-        if (aiAnalysis && aiAnalysis.recommendation === 'decrease') {
-            feedbackText += ` Difficulty eased to ${aiAnalysis.new_difficulty}.`;
-        }
+        // Build feedback — prefer DDA hint over generic message
+        const hint = ddaResult.hint || hintMessage;
+        let feedbackText = `✗ Wrong answer! Try again.`;
+        if (hint) feedbackText += ` ${hint}`;
         this.showFeedback(feedbackText, 'error');
 
-        // Fetch AI hint
         this.fetchAIHint();
-
-        // Update adaptive learning visuals
         this.updateAdaptiveUI(aiAnalysis);
 
-        // After a short delay, RESET the answer options so the player can retry the SAME question
         setTimeout(() => {
-            // Clear visual states from all answer options
             document.querySelectorAll('.answer-option').forEach(opt => {
                 opt.classList.remove('selected', 'incorrect', 'correct', 'wrong-shake');
-                opt.style.pointerEvents = ''; // Re-enable clicking
+                opt.style.pointerEvents = '';
             });
-
-            // Reset selection state
             this.selectedAnswer = null;
-
-            // Re-enable submit button
             document.getElementById('submitBtn').disabled = false;
-
-            // Hide error feedback after reset
             this.hideFeedback();
         }, 1500);
+    }
+
+    /** Show an animated toast when DDA changes difficulty. */
+    _showAdaptiveToast(direction, level, hint = null) {
+        const toast = document.getElementById('adaptiveToast');
+        if (!toast) return;
+        const icons = { increase: '📈', decrease: '📉' };
+        const labels = { increase: 'Challenge UP', decrease: 'Easing Level' };
+        toast.className = `adaptive-toast ${direction}`;
+        toast.innerHTML = `${icons[direction]} ${labels[direction]} → <strong>${level.toUpperCase()}</strong>`;
+        if (hint && direction === 'decrease') toast.innerHTML += `<div style="font-size:0.85em;margin-top:4px;opacity:0.9">${hint}</div>`;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     async fetchAIHint() {

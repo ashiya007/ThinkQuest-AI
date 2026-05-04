@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,7 +11,7 @@
         <!-- Game Header -->
         <header class="game-header">
             <div class="game-info">
-                <h1>🧩 Math Puzzle Game</h1>
+                <h1> Math Puzzle Game</h1>
                 <div class="student-info">
                     <span id="studentIdDisplay"></span>
                     <span id="classDisplay"></span>
@@ -54,7 +54,7 @@
                         Loading question...
                     </div>
                     <div class="timer" id="timer">
-                        <span class="timer-icon">⏱️</span>
+                        <span class="timer-icon"></span>
                         <span id="timeDisplay">0s</span>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                     <h3 id="feedbackTitle"></h3>
                     <p id="feedbackMessage"></p>
                     <div class="hint-box" id="hintBox" style="display: none;">
-                        <h4>💡 Hint:</h4>
+                        <h4> Hint:</h4>
                         <p id="hintText"></p>
                     </div>
                     <button class="btn btn-primary" id="nextQuestionBtn">Next Question →</button>
@@ -84,19 +84,19 @@
 
         <!-- Game Controls -->
         <footer class="game-controls">
-            <button class="btn btn-secondary" id="pauseBtn">⏸️ Pause</button>
-            <button class="btn btn-secondary" id="hintBtn">💡 Get Hint</button>
-            <button class="btn btn-danger" id="quitBtn">🏠 Quit Game</button>
+            <button class="btn btn-secondary" id="pauseBtn"> Pause</button>
+            <button class="btn btn-secondary" id="hintBtn"> Get Hint</button>
+            <button class="btn btn-danger" id="quitBtn"> Quit Game</button>
         </footer>
 
         <!-- Pause Overlay -->
         <div class="pause-overlay" id="pauseOverlay" style="display: none;">
             <div class="pause-content">
-                <h2>⏸️ Game Paused</h2>
+                <h2> Game Paused</h2>
                 <p>Take a break! Your progress is saved.</p>
                 <div class="pause-buttons">
-                    <button class="btn btn-primary" id="resumeBtn">▶️ Resume</button>
-                    <button class="btn btn-secondary" id="quitFromPauseBtn">🏠 Quit Game</button>
+                    <button class="btn btn-primary" id="resumeBtn">▶ Resume</button>
+                    <button class="btn btn-secondary" id="quitFromPauseBtn"> Quit Game</button>
                 </div>
             </div>
         </div>
@@ -104,7 +104,7 @@
         <!-- Game Over Overlay -->
         <div class="game-over-overlay" id="gameOverOverlay" style="display: none;">
             <div class="game-over-content">
-                <h2 id="gameOverTitle">🎉 Game Complete!</h2>
+                <h2 id="gameOverTitle"> Game Complete!</h2>
                 <div class="final-stats">
                     <div class="stat-item">
                         <span class="stat-value" id="finalScore">0</span>
@@ -121,9 +121,9 @@
                 </div>
                 <div class="performance-message" id="performanceMessage"></div>
                 <div class="game-over-buttons">
-                    <button class="btn btn-primary" id="playAgainBtn">🔄 Play Again</button>
-                    <button class="btn btn-secondary" id="viewReportBtn">📊 View Report</button>
-                    <button class="btn btn-secondary" id="homeBtn">🏠 Home</button>
+                    <button class="btn btn-primary" id="playAgainBtn"> Play Again</button>
+                    <button class="btn btn-secondary" id="viewReportBtn"> View Report</button>
+                    <button class="btn btn-secondary" id="homeBtn"> Home</button>
                 </div>
             </div>
         </div>

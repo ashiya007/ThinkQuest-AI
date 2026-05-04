@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Session — ThinkQuest AI</title>
+    <meta name="description" content="Join your teacher's ThinkQuest AI math game session using a session code.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --success-dark: #38a169;
+            --danger: #f56565;
+            --danger-bg: #fff5f5;
+            --warning: #ed8936;
+            --card: rgba(255, 255, 255, 0.97);
+            --text: #2d3748;
+            --muted: #718096;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* Animated background particles */
+        .bg-particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.15;
+            animation: float linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 0.15; }
+            90% { opacity: 0.15; }
+            100% { transform: translateY(-100px) scale(1); opacity: 0; }
+        }
+
+        /* Main card */
+        .join-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 460px;
+            margin: 24px 16px;
+            background: var(--card);
+            border-radius: 24px;
+            padding: 44px 40px;
+            box-shadow:
+                0 25px 80px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            animation: cardEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes cardEntry {
+            from { opacity: 0; transform: translateY(32px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .brand-logo {
+            font-size: 3rem;
+            margin-bottom: 8px;
+            display: block;
+            filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.5));
+        }
+
+        .brand h1 {
+            font-size: 1.7rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .brand p {
+            font-size: 0.88rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* Form fields */
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .code-input {
+            width: 100%;
+            padding: 16px 18px;
+            font-family: 'Courier New', monospace;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 10px;
+            text-align: center;
+            text-transform: uppercase;
+            border: 2.5px solid #e2e8f0;
+            border-radius: 14px;
+            background: #f8faff;
+            color: var(--primary);
+            transition: all 0.25s;
+            outline: none;
+        }
+
+        .code-input::placeholder {
+            color: #cbd5e0;
+            letter-spacing: 6px;
+            font-size: 20px;
+        }
+
+        .code-input:focus {
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+        }
+
+        .code-input.valid {
+            border-color: var(--success);
+            background: #f0fff4;
+            color: var(--success-dark);
+        }
+
+        .code-input.invalid {
+            border-color: var(--danger);
+            background: var(--danger-bg);
+            color: var(--danger);
+            animation: shake 0.35s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        .name-input {
+            width: 100%;
+            padding: 13px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            font-weight: 600;
+            border: 2.5px solid #e2e8f0;
+            border-radius: 14px;
+            background: #f8faff;
+            color: var(--text);
+            transition: all 0.25s;
+            outline: none;
+        }
+
+        .name-input:focus {
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+        }
+
+        /* Validation badge */
+        .validate-status {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            min-height: 18px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: opacity 0.2s;
+        }
+
+        .validate-status.ok    { color: var(--success-dark); }
+        .validate-status.err   { color: var(--danger); }
+        .validate-status.info  { color: var(--muted); }
+
+        /* Join button */
+        .join-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-size: 16px;
+            font-weight: 800;
+            font-family: inherit;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 24px rgba(102, 126, 234, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .join-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background 0.2s;
+        }
+
+        .join-btn:hover:not(:disabled)::after { background: rgba(255,255,255,0.1); }
+
+        .join-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(102, 126, 234, 0.55);
+        }
+
+        .join-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .join-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        /* Spinner inside button */
+        .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.4);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .join-btn.loading .btn-spinner { display: block; }
+        .join-btn.loading .btn-label  { display: none; }
+
+        /* Error / Success messages */
+        .alert {
+            margin-top: 18px;
+            padding: 13px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
+
+        .alert.show  { display: flex; animation: fadeIn 0.25s ease; }
+        .alert.error { background: var(--danger-bg); color: #c53030; border: 1.5px solid #fed7d7; }
+        .alert.success { background: #f0fff4; color: #276749; border: 1.5px solid #c6f6d5; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Retry link */
+        .retry-link {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        .card-footer {
+            margin-top: 28px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            border-top: 1px solid #edf2f7;
+            padding-top: 20px;
+        }
+
+        .card-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Success screen */
+        .success-screen {
+            display: none;
+            text-align: center;
+            animation: cardEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .success-screen .big-emoji {
+            font-size: 4rem;
+            margin-bottom: 12px;
+            display: block;
+            animation: bounce 0.6s ease 0.2s both;
+        }
+
+        @keyframes bounce {
+            0% { transform: scale(0); }
+            60% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .success-screen h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .success-screen p {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .launch-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--success), var(--success-dark));
+            color: white;
+            font-size: 15px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 24px rgba(72, 187, 120, 0.45);
+            text-decoration: none;
+        }
+
+        .launch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(72, 187, 120, 0.55);
+        }
+
+        .game-info-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: #f0f4ff;
+            border: 1.5px solid #c3d0ff;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Animated background -->
+    <div class="bg-particles" id="bgParticles"></div>
+
+    <div class="join-card" id="joinCard">
+        <!-- Brand header -->
+        <div class="brand">
+            <span class="brand-logo"></span>
+            <h1>ThinkQuest AI</h1>
+            <p>Enter your session code to start playing</p>
+        </div>
+
+        <!-- ── JOIN FORM ── -->
+        <div id="joinForm">
+            <!-- Session code field -->
+            <div class="field">
+                <label for="codeInput">Session Code</label>
+                <input
+                    type="text"
+                    id="codeInput"
+                    class="code-input"
+                    placeholder="ABCD12"
+                    maxlength="8"
+                    autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    inputmode="text"
+                >
+                <div class="validate-status info" id="validateStatus"></div>
+            </div>
+
+            <!-- Player name field -->
+            <div class="field">
+                <label for="nameInput">Your Name</label>
+                <input
+                    type="text"
+                    id="nameInput"
+                    class="name-input"
+                    placeholder="e.g. Alex"
+                    maxlength="32"
+                    autocomplete="given-name"
+                >
+            </div>
+
+            <!-- Error / info alert -->
+            <div class="alert error" id="alertError" role="alert">
+                <span id="alertErrorIcon"></span>
+                <div>
+                    <span id="alertErrorMsg"></span>
+                    <br>
+                    <span class="retry-link" onclick="resetForm()">← Try again</span>
+                </div>
+            </div>
+
+            <!-- Join button -->
+            <button class="join-btn" id="joinBtn" onclick="handleJoin()">
+                <div class="btn-spinner"></div>
+                <span class="btn-label"> Join &amp; Play</span>
+            </button>
+        </div>
+
+        <!-- ── SUCCESS SCREEN ── -->
+        <div class="success-screen" id="successScreen">
+            <span class="big-emoji"></span>
+            <h2 id="successHeading">You're in!</h2>
+            <p id="successSubtext">Get ready to play. The game is opening…</p>
+            <div class="game-info-pill" id="gameInfoPill"></div>
+            <br>
+            <a class="launch-btn" id="launchLink" href="#" target="_blank">
+                 Open Game
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div class="card-footer">
+            Are you a teacher? <a href="/">Go to Teacher Dashboard →</a>
+        </div>
+    </div>
+
+    <script>
+        // ── Animated background particles ──────────────────────────────────────
+        (function spawnParticles() {
+            const container = document.getElementById('bgParticles');
+            const colors = ['#667eea', '#764ba2', '#48bb78', '#ed8936', '#e53e3e'];
+            for (let i = 0; i < 18; i++) {
+                const el = document.createElement('div');
+                el.className = 'particle';
+                const size = Math.random() * 60 + 20;
+                el.style.cssText = `
+                    width: ${size}px; height: ${size}px;
+                    left: ${Math.random() * 100}%;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    animation-duration: ${Math.random() * 12 + 8}s;
+                    animation-delay: ${Math.random() * -15}s;
+                `;
+                container.appendChild(el);
+            }
+        })();
+
+        // ── State ──────────────────────────────────────────────────────────────
+        let validateTimer = null;
+        let lastValidCode = '';
+        let joinedData = null;
+
+        // ── Pre-fill code from URL query param ─────────────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (code) {
+                const codeInput = document.getElementById('codeInput');
+                codeInput.value = code.toUpperCase();
+                onCodeInput();
+            }
+
+            // Restore name from localStorage
+            const savedName = localStorage.getItem('tq_player_name');
+            if (savedName) document.getElementById('nameInput').value = savedName;
+
+            document.getElementById('nameInput').addEventListener('keydown', e => {
+                if (e.key === 'Enter') handleJoin();
+            });
+            document.getElementById('codeInput').addEventListener('input', onCodeInput);
+        });
+
+        // ── Code field live validation ──────────────────────────────────────────
+        function onCodeInput() {
+            const raw = document.getElementById('codeInput').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            document.getElementById('codeInput').value = raw;
+
+            const status = document.getElementById('validateStatus');
+            const codeInput = document.getElementById('codeInput');
+            codeInput.classList.remove('valid', 'invalid');
+            status.className = 'validate-status info';
+            status.textContent = '';
+
+            if (raw.length < 4) return;
+
+            clearTimeout(validateTimer);
+            status.textContent = ' Checking code…';
+            validateTimer = setTimeout(() => validateCode(raw), 500);
+        }
+
+        async function validateCode(code) {
+            const codeInput = document.getElementById('codeInput');
+            const status = document.getElementById('validateStatus');
+            try {
+                const res = await fetch(`/api/validate_session/${code}`);
+                const data = await res.json();
+                if (data.valid) {
+                    codeInput.classList.add('valid');
+                    status.className = 'validate-status ok';
+                    status.textContent = ` Session found — ${data.player_count} player(s) joined`;
+                    lastValidCode = code;
+                } else {
+                    codeInput.classList.add('invalid');
+                    status.className = 'validate-status err';
+                    status.textContent = ` ${data.error || 'Session not found'}`;
+                    lastValidCode = '';
+                }
+            } catch {
+                status.className = 'validate-status err';
+                status.textContent = ' Could not reach server';
+            }
+        }
+
+        // ── Join handler ────────────────────────────────────────────────────────
+        async function handleJoin() {
+            hideError();
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
+            const name = document.getElementById('nameInput').value.trim();
+
+            // Client-side validation
+            if (!code) { return showError('Please enter your session code.'); }
+            if (code.length < 4) { return showError('Session codes are at least 4 characters long.'); }
+            if (!/^[A-Z0-9]+$/.test(code)) { return showError('Session codes only contain letters and numbers.'); }
+            if (!name) { return showError('Please enter your name so the teacher can see you on the dashboard.'); }
+            if (name.length < 2) { return showError('Name must be at least 2 characters.'); }
+
+            // Persist name
+            localStorage.setItem('tq_player_name', name);
+
+            setLoading(true);
+
+            try {
+                const res = await fetch('/api/join_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: code, player_name: name })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    setLoading(false);
+                    showError(data.error || 'Failed to join session. Please try again.');
+                    return;
+                }
+
+                // Save session context for the game
+                joinedData = data;
+                sessionStorage.setItem('tq_session_id', data.session_id);
+                sessionStorage.setItem('tq_student_id', data.student_id);
+                sessionStorage.setItem('tq_player_name', name);
+
+                // ── Write the full game config so ALL game engines can read it ──
+                // This is the single source of truth for operations/class_level/difficulty.
+                const cfg = data.game_config || {};
+                const fullGameConfig = {
+                    class_level: cfg.class_level || 3,
+                    operations: cfg.operations || ['addition'],
+                    difficulty: cfg.difficulty || 'medium',
+                    math_topic: cfg.subtopic || cfg.math_topic || 'addition', // legacy alias
+                    theme: cfg.theme || 'space',
+                    game_type: cfg.game_type || 'quiz',
+                    topic: cfg.topic || '',
+                    subtopic: cfg.subtopic || '',
+                    topicLabel: cfg.topicLabel || cfg.topic || '',
+                    subtopicLabel: cfg.subtopicLabel || cfg.subtopic || '',
+                    custom_prompt: cfg.custom_prompt || ''
+                };
+                sessionStorage.setItem('gameConfig', JSON.stringify(fullGameConfig));
+
+                // Propagate AI topic config so AI-powered question endpoints also work
+                if (cfg.topic) {
+                    sessionStorage.setItem('aiTopicConfig', JSON.stringify({
+                        topic: cfg.topic,
+                        subtopic: cfg.subtopic,
+                        difficulty: cfg.difficulty,
+                        topicLabel: cfg.topicLabel || cfg.topic,
+                        subtopicLabel: cfg.subtopicLabel || cfg.subtopic || ''
+                    }));
+                }
+                if (cfg.custom_prompt) {
+                    sessionStorage.setItem('aiCustomPrompt', cfg.custom_prompt);
+                }
+
+                setLoading(false);
+                showSuccess(data);
+
+            } catch (err) {
+                setLoading(false);
+                showError('Connection error. Please check your internet and try again.');
+                console.error('[Join]', err);
+            }
+        }
+
+        // ── UI helpers ─────────────────────────────────────────────────────────
+        function setLoading(on) {
+            const btn = document.getElementById('joinBtn');
+            btn.disabled = on;
+            if (on) btn.classList.add('loading');
+            else btn.classList.remove('loading');
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('alertError');
+            document.getElementById('alertErrorMsg').textContent = msg;
+            el.classList.add('show');
+
+            const ci = document.getElementById('codeInput');
+            ci.classList.add('invalid');
+            ci.classList.remove('valid');
+        }
+
+        function hideError() {
+            document.getElementById('alertError').classList.remove('show');
+        }
+
+        function resetForm() {
+            hideError();
+            const ci = document.getElementById('codeInput');
+            ci.classList.remove('invalid', 'valid');
+            ci.focus();
+        }
+
+        function showSuccess(data) {
+            const cfg = data.game_config || {};
+            const gameType = cfg.game_type || 'puzzle';
+            const gameEmojis = { runner:'', shooter:'', quiz:'', kangaroo:'', puzzle:'' };
+            const gameNames = { runner:'Math Runner', shooter:'Alien Blaster', quiz:'Quick Quiz', kangaroo:'Kangaroo Jump', puzzle:'Math Puzzle' };
+
+            document.getElementById('successHeading').textContent = `Welcome, ${data.player_name}! `;
+            document.getElementById('successSubtext').textContent =
+                `You've joined session ${data.session_id}. Click below to open your game.`;
+            document.getElementById('gameInfoPill').innerHTML =
+                `${gameEmojis[gameType] || ''} ${gameNames[gameType] || 'Math Game'} · Session ${data.session_id}`;
+
+            const gameUrl = data.game_url || '/quiz_game.html';
+            document.getElementById('launchLink').href = gameUrl;
+
+            document.getElementById('joinForm').style.display = 'none';
+            document.getElementById('successScreen').style.display = 'block';
+
+            // Auto-open the game in current tab after a short delay
+            setTimeout(() => { window.location.href = gameUrl; }, 1800);
+        }
+    </script>
+
+</body>
+</html>

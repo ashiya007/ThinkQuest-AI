@@ -329,7 +329,7 @@
     <div class="runner-page">
         <!-- Top Bar -->
         <div class="top-bar">
-            <h1>🏃 Math Runner</h1>
+            <h1> Math Runner</h1>
             <a href="/" class="back-link">← Back to Home</a>
         </div>
 
@@ -348,7 +348,7 @@
             <div class="sidebar">
                 <!-- Stats -->
                 <div class="stats-card">
-                    <h3>📊 Game Stats</h3>
+                    <h3> Game Stats</h3>
                     <div class="stats-grid">
                         <div class="stat-box">
                             <div class="stat-label">Score</div>
@@ -379,7 +379,7 @@
 
                 <!-- Instructions -->
                 <div class="instructions-card">
-                    <h3>🎮 How to Play</h3>
+                    <h3> How to Play</h3>
                     <ul>
                         <li><strong>▲ / ▼</strong> — Switch lanes</li>
                         <li><strong>3 lanes, 3 answers</strong> — pick the right gate!</li>
@@ -390,9 +390,9 @@
 
                 <!-- Controls -->
                 <div class="controls">
-                    <button class="control-btn start-btn" id="startBtn" onclick="startGame()">🎮 Start Game</button>
-                    <button class="control-btn pause-btn" id="pauseBtn" onclick="pauseGame()" disabled>⏸️ Pause</button>
-                    <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()">🔄 Reset</button>
+                    <button class="control-btn start-btn" id="startBtn" onclick="startGame()"> Start Game</button>
+                    <button class="control-btn pause-btn" id="pauseBtn" onclick="pauseGame()" disabled> Pause</button>
+                    <button class="control-btn reset-btn" id="resetBtn" onclick="resetGame()"> Reset</button>
                 </div>
 
                 <!-- Feedback -->
@@ -414,10 +414,10 @@
             </div>
             <div id="aiReport"
                 style="display:none; background:#f0f4ff; border:1px solid #667eea; border-radius:10px; padding:14px; margin:12px 0; font-size:13px; color:#2d3748; text-align:left; line-height:1.5;">
-                <strong style="color:#667eea;">🤖 AI Analysis:</strong>
+                <strong style="color:#667eea;"> AI Analysis:</strong>
                 <span id="aiReportText"></span>
             </div>
-            <button class="control-btn start-btn" onclick="playAgain()" style="width:100%">🔄 Play Again</button>
+            <button class="control-btn start-btn" onclick="playAgain()" style="width:100%"> Play Again</button>
         </div>
     </div>
 
@@ -427,6 +427,7 @@
     <div id="platformOptions" style="display:none"></div>
 
     <script src="assets/questions_runner.js"></script>
+    <script src="adaptive_difficulty.js"></script>
     <script src="runner_game.js"></script>
 </body>
 

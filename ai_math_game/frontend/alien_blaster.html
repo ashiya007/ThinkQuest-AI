@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🛸 Alien Math Blaster - ThinkQuest AI</title>
+    <title> Alien Math Blaster - ThinkQuest AI</title>
     <style>
         * {
             margin: 0;
@@ -16,7 +16,7 @@
         body {
             height: 100vh;
             overflow: hidden;
-            background: linear-gradient(135deg, #0c0c1e 0%, #1a1a3e 100%);
+            background: linear-gradient(135deg, #090914 0%, #161633 100%);
             font-family: 'Segoe UI', Arial, sans-serif;
             color: white;
         }
@@ -64,52 +64,63 @@
 
         /* Target banner */
         .target-banner {
-            background: linear-gradient(135deg, #e53e3e, #c53030);
-            padding: 8px 16px;
-            border-radius: 10px 10px 0 0;
+            background: linear-gradient(135deg, #6b21a8, #4c1d95);
+            padding: 12px 20px;
+            border-radius: 12px 12px 0 0;
             text-align: center;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             flex-shrink: 0;
             display: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
         .target-banner .label {
-            font-size: 10px;
+            font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 2px;
             opacity: 0.8;
             display: block;
+            margin-bottom: 4px;
         }
 
         #gameCanvas {
             display: block;
             width: 100%;
             height: 100%;
-            border: 2px solid rgba(0, 255, 255, 0.3);
-            border-radius: 0 0 10px 10px;
-            background: linear-gradient(to bottom, #000428, #1a237e);
+            border: 2px solid rgba(139, 92, 246, 0.4);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            background: linear-gradient(to bottom, #050510, #1e1e40);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
 
         /* Sidebar */
         .sidebar {
-            flex: 0 0 240px;
+            flex: 0 0 260px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 10px 14px;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
         .card h3 {
-            font-size: 13px;
-            margin-bottom: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
             opacity: 0.9;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .stats-grid {
@@ -124,9 +135,10 @@
         }
 
         .stat-box .val {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
-            color: #00ffff;
+            color: #2dd4bf;
+            text-shadow: 0 0 10px rgba(45, 212, 191, 0.3);
         }
 
         .stat-box .lbl {
@@ -178,30 +190,34 @@
         }
 
         .btn {
-            padding: 10px;
+            padding: 12px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-weight: bold;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
             color: white;
             transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         .btn-start {
-            background: linear-gradient(135deg, #48bb78, #38a169);
+            background: linear-gradient(135deg, #10b981, #059669);
         }
 
         .btn-pause {
-            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            background: linear-gradient(135deg, #f59e0b, #d97706);
         }
 
         .btn-reset {
-            background: linear-gradient(135deg, #718096, #4a5568);
+            background: linear-gradient(135deg, #64748b, #475569);
         }
 
         .btn:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
         }
 
         .btn:disabled {
@@ -270,7 +286,7 @@
 <body>
     <div class="page">
         <div class="top-bar">
-            <h1>🛸 Alien Math Blaster</h1>
+            <h1> Alien Math Blaster</h1>
             <a href="/">← Back to Home</a>
         </div>
 
@@ -285,7 +301,7 @@
 
             <div class="sidebar">
                 <div class="card">
-                    <h3>📊 Stats</h3>
+                    <h3> Stats</h3>
                     <div class="stats-grid">
                         <div class="stat-box">
                             <div class="val" id="score">0</div>
@@ -307,18 +323,18 @@
                 </div>
 
                 <div class="card">
-                    <div class="diff-badge diff-easy" id="diffBadge">🟢 EASY</div>
+                    <div class="diff-badge diff-easy" id="diffBadge"> EASY</div>
                 </div>
 
                 <div class="card">
                     <div class="powerups">
-                        <span class="powerup-icon" id="shieldIcon">🛡️ Shield</span>
-                        <span class="powerup-icon" id="slowIcon">⏳ Slow-Mo</span>
+                        <span class="powerup-icon" id="shieldIcon"> Shield</span>
+                        <span class="powerup-icon" id="slowIcon"> Slow-Mo</span>
                     </div>
                 </div>
 
                 <div class="card instructions">
-                    <h3>🎮 Controls</h3>
+                    <h3> Controls</h3>
                     <ul>
                         <li><strong>← →</strong> Move cannon</li>
                         <li><strong>Space</strong> — Shoot!</li>
@@ -328,9 +344,9 @@
                 </div>
 
                 <div class="controls">
-                    <button class="btn btn-start" id="startBtn" onclick="startGame()">🎮 Start Game</button>
-                    <button class="btn btn-pause" id="pauseBtn" onclick="pauseGame()" disabled>⏸️ Pause</button>
-                    <button class="btn btn-reset" onclick="resetGame()">🔄 Reset</button>
+                    <button class="btn btn-start" id="startBtn" onclick="startGame()"> Start Game</button>
+                    <button class="btn btn-pause" id="pauseBtn" onclick="pauseGame()" disabled> Pause</button>
+                    <button class="btn btn-reset" onclick="resetGame()"> Reset</button>
                 </div>
 
                 <div class="feedback" id="feedback"></div>
@@ -338,6 +354,7 @@
         </div>
     </div>
 
+    <script src="adaptive_difficulty.js"></script>
     <script>
         class AlienGame {
             constructor() {
@@ -373,15 +390,18 @@
                 this.alienSpawnTimer = 0;
                 this.alienSpawnInterval = 150;
 
-                // ── Adaptive Difficulty ──
-                this.currentDifficulty = 'easy';
-                this.consecutiveCorrect = 0;
-                this.consecutiveWrong = 0;
+                // ── Difficulty configs (driven by shared DDA engine) ──
                 this.difficultyConfig = {
-                    easy: { multMin: 1, multMax: 5, alienSpeed: [0.4, 0.8], spawnInterval: 180, points: 10 },
-                    medium: { multMin: 2, multMax: 9, alienSpeed: [0.6, 1.2], spawnInterval: 130, points: 20 },
-                    hard: { multMin: 4, multMax: 12, alienSpeed: [0.8, 1.6], spawnInterval: 90, points: 35 }
+                    easy:   { multMin: 1, multMax: 5,  alienSpeed: [0.4, 0.8], spawnInterval: 180, points: 10 },
+                    medium: { multMin: 2, multMax: 9,  alienSpeed: [0.6, 1.2], spawnInterval: 130, points: 20 },
+                    hard:   { multMin: 4, multMax: 12, alienSpeed: [0.8, 1.6], spawnInterval:  90, points: 35 }
                 };
+                this.dda = new DifficultyEngine({
+                    promoteAfter: 4,
+                    demoteAfter:  2,
+                    onIncrease: (lvl) => this._onDifficultyChange('increase', lvl),
+                    onDecrease: (lvl, hint) => this._onDifficultyChange('decrease', lvl, hint)
+                });
 
                 // Power-ups
                 this.hasShield = false;
@@ -412,9 +432,32 @@
                 } catch (e) { console.log('No AI topic config'); }
             }
 
+            /** Restore aiTopic from gameConfig when aiTopicConfig not in sessionStorage. */
+            _applyTopicFromConfig() {
+                if (this.aiTopic) return; // already set
+                try {
+                    const gcRaw = sessionStorage.getItem('gameConfig');
+                    if (!gcRaw) return;
+                    const gc = JSON.parse(gcRaw);
+                    if (gc.topic) {
+                        this.aiTopic = {
+                            topic: gc.topic,
+                            subtopic: gc.subtopic || '',
+                            difficulty: gc.difficulty || 'medium',
+                            topicLabel: gc.topicLabel || gc.topic,
+                            subtopicLabel: gc.subtopicLabel || gc.subtopic || ''
+                        };
+                        this.customPrompt = gc.custom_prompt || this.customPrompt || '';
+                        console.log('[Alien] aiTopic restored from gameConfig:', this.aiTopic);
+                    }
+                } catch (e) { /* silent */ }
+            }
+
             init() {
                 this.setupStars();
                 this.setupEventListeners();
+                // Restore aiTopic from gameConfig if not already set via sessionStorage
+                this._applyTopicFromConfig();
                 this.gameLoop();
             }
 
@@ -443,7 +486,7 @@
 
             // ── ADAPTIVE QUESTION GENERATION ──
             getDiffConfig() {
-                return this.difficultyConfig[this.currentDifficulty];
+                return this.difficultyConfig[this.dda.difficulty];
             }
 
             async fetchAIQuestion() {
@@ -455,7 +498,7 @@
                         body: JSON.stringify({
                             topic: this.aiTopic.topic,
                             subtopic: this.aiTopic.subtopic,
-                            difficulty: this.currentDifficulty,
+                            difficulty: this.dda.difficulty,
                             previous_questions: this.previousQuestions.slice(-8),
                             custom_prompt: this.customPrompt || ''
                         })
@@ -599,11 +642,9 @@
                 this.shotsHit++;
                 this.streakCount++;
                 this.maxStreak = Math.max(this.maxStreak, this.streakCount);
-                this.consecutiveCorrect++;
-                this.consecutiveWrong = 0;
                 this.questionsAnswered++;
 
-                // Scoring
+                // Points
                 const cfg = this.getDiffConfig();
                 const basePoints = cfg.points;
                 const streakBonus = Math.min(this.streakCount, 10) * 2;
@@ -617,17 +658,10 @@
                 else if (this.streakCount >= 3) msg = `⚡ x${this.streakCount} +${points}`;
                 this.addFloatingText(msg, alien.x + alien.width / 2, alien.y, '#48bb78');
 
-                // ── Adaptive: promote after 4 consecutive correct ──
-                if (this.consecutiveCorrect >= 4) {
-                    this.consecutiveCorrect = 0;
-                    if (this.currentDifficulty === 'easy') {
-                        this.currentDifficulty = 'medium';
-                        this.showFeedback('📈 DIFFICULTY UP → MEDIUM!', '#ecc94b');
-                    } else if (this.currentDifficulty === 'medium') {
-                        this.currentDifficulty = 'hard';
-                        this.showFeedback('📈 DIFFICULTY UP → HARD!', '#f56565');
-                    }
-                }
+                // Record in DDA (use response-time tracking if AI mode, else estimate)
+                const timeTaken = this._lastQuestionStart ? (Date.now() - this._lastQuestionStart) / 1000 : 5;
+                this.dda.record(true, timeTaken);
+                this._lastQuestionStart = Date.now();
 
                 // Power-ups
                 if (this.streakCount === 5 && !this.hasShield) {
@@ -647,11 +681,14 @@
             }
 
             handleWrongHit(alien) {
-                this.consecutiveWrong++;
-                this.consecutiveCorrect = 0;
                 this.streakCount = 0;
                 this.questionsAnswered++;
                 this.wrongAnswers.push(`Q: ${this._currentAIQuestion?.question || this.targetNumber}, answered: ${alien.expression}`);
+
+                // Record in DDA
+                const timeTaken = this._lastQuestionStart ? (Date.now() - this._lastQuestionStart) / 1000 : 15;
+                const ddaResult = this.dda.record(false, timeTaken);
+                this._lastQuestionStart = Date.now();
 
                 // Fetch AI hint asynchronously
                 this.fetchAIHint(alien);
@@ -662,7 +699,6 @@
                     this.showFeedback('🛡️ SHIELD BLOCKED! No penalty!', '#00ffff');
                     this.addFloatingText('BLOCKED!', alien.x + alien.width / 2, alien.y, '#00ffff');
                     this.createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#00ffff');
-                    // Remove alien but don't penalize
                     this.aliens = this.aliens.filter(a => a !== alien);
                     this.updateStats();
                     return;
@@ -672,16 +708,9 @@
                 this.createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#f56565');
                 this.addFloatingText(`WRONG! = ${alien.value}`, alien.x + alien.width / 2, alien.y, '#f56565');
 
-                // ── Adaptive: demote after 2 consecutive wrong ──
-                if (this.consecutiveWrong >= 2) {
-                    this.consecutiveWrong = 0;
-                    if (this.currentDifficulty === 'hard') {
-                        this.currentDifficulty = 'medium';
-                        this.showFeedback('📉 DIFFICULTY DOWN → MEDIUM', '#ff4444');
-                    } else if (this.currentDifficulty === 'medium') {
-                        this.currentDifficulty = 'easy';
-                        this.showFeedback('📉 DIFFICULTY DOWN → EASY', '#ff4444');
-                    }
+                // Show hint if DDA demoted, otherwise generic message
+                if (!ddaResult.hint) {
+                    this.showFeedback(`❌ Wrong! Correct: ${this.targetNumber}`, '#ff4444');
                 }
 
                 if (this.lives <= 0) {
@@ -689,10 +718,27 @@
                     return;
                 }
 
-                // Remove alien and respawn set
                 this.generateTarget();
                 this.spawnAlienSet();
                 this.updateStats();
+            }
+
+            /** Sync diff badge and feedback when DDA changes level. */
+            _onDifficultyChange(direction, level, hint = null) {
+                this._updateDiffBadge(level);
+                if (direction === 'increase') {
+                    this.showFeedback(`📈 LEVEL UP → ${level.toUpperCase()}!`, '#ecc94b');
+                } else {
+                    const msg = hint ? `📉 Easing → ${level}. ${hint}` : `📉 LEVEL DOWN → ${level.toUpperCase()}`;
+                    this.showFeedback(msg, '#4299e1');
+                }
+            }
+
+            _updateDiffBadge(level) {
+                const badge = document.getElementById('diffBadge');
+                if (!badge) return;
+                badge.className = `diff-badge diff-${level}`;
+                badge.textContent = ` ${level.toUpperCase()}`;
             }
 
             // ── VISUALS ──
@@ -736,7 +782,7 @@
                     this.slowMoTimer--;
                     if (this.slowMoTimer <= 0) {
                         this.slowMoActive = false;
-                        this.showFeedback('⏳ Slow-mo ended!', '#aaaaaa');
+                        this.showFeedback(' Slow-mo ended!', '#aaaaaa');
                     }
                 }
 
@@ -767,7 +813,9 @@
                         const a = this.aliens[j];
                         if (l.x > a.x && l.x < a.x + a.width && l.y > a.y && l.y < a.y + a.height) {
                             this.lasers.splice(i, 1);
-                            if (a.value === this.targetNumber) {
+                            // Use string comparison to handle both AI (string) and local (number) answers
+                            const isCorrect = String(a.value) === String(this.targetNumber);
+                            if (isCorrect) {
                                 this.handleCorrectHit(a);
                             } else {
                                 this.handleWrongHit(a);
@@ -922,62 +970,51 @@
 
                 // HUD on canvas: target number + difficulty
                 if (this.isRunning && !this.gameOver) {
-                    // Target badge
-                    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                    const targetText = this._currentAIQuestion ?
-                        this._currentAIQuestion.question : String(this.targetNumber);
-                    const tw = Math.max(240, ctx.measureText(targetText).width + 40);
-                    ctx.fillRect(W / 2 - tw / 2, 5, tw, 40);
-                    ctx.fillStyle = '#ffd700';
-                    ctx.font = 'bold 11px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(this._currentAIQuestion ? 'QUESTION:' : 'TARGET:', W / 2, 18);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.fillText(targetText, W / 2, 38);
+                    // Target badge (removed from canvas since HTML targetBanner handles it beautifully)
+
 
                     // Difficulty badge
                     const diffColors = { easy: '#48bb78', medium: '#ecc94b', hard: '#f56565' };
-                    ctx.fillStyle = diffColors[this.currentDifficulty];
+                    ctx.fillStyle = diffColors[this.dda.difficulty];
                     ctx.font = 'bold 12px Arial';
                     ctx.textAlign = 'left';
-                    ctx.fillText(this.currentDifficulty.toUpperCase(), 10, 20);
+                    ctx.fillText(this.dda.difficulty.toUpperCase(), 10, 20);
 
                     // AI badge
                     if (this.aiTopic) {
                         ctx.fillStyle = '#9f7aea';
                         ctx.font = 'bold 10px Arial';
-                        ctx.fillText('🤖 AI: ' + (this.aiTopic.topicLabel || ''), 10, 36);
+                        ctx.fillText(' AI: ' + (this.aiTopic.topicLabel || ''), 10, 36);
                     }
 
                     // Score
                     ctx.fillStyle = '#00ffff';
                     ctx.font = 'bold 14px Arial';
                     ctx.textAlign = 'right';
-                    ctx.fillText(`⭐ ${this.score}`, W - 10, 20);
+                    ctx.fillText(` ${this.score}`, W - 10, 20);
 
-                    // AI Hint popup
+                    // AI Hint popup (Moved to top of screen so it doesn't overlap cannon)
                     if (this.aiHintTimer > 0) {
                         this.aiHintTimer--;
                         const alpha = Math.min(1, this.aiHintTimer / 30);
                         ctx.globalAlpha = alpha;
                         ctx.fillStyle = 'rgba(26, 32, 44, 0.92)';
-                        ctx.fillRect(40, H - 80, W - 80, 65);
+                        ctx.fillRect(40, 60, W - 80, 80);
                         ctx.strokeStyle = '#ffd700';
                         ctx.lineWidth = 2;
-                        ctx.strokeRect(40, H - 80, W - 80, 65);
+                        ctx.strokeRect(40, 60, W - 80, 80);
                         ctx.fillStyle = '#fefcbf';
-                        ctx.font = '13px Arial';
+                        ctx.font = '14px Arial';
                         ctx.textAlign = 'center';
                         // Word-wrap hint
                         const words = this.aiHintText.split(' ');
-                        let line = '', lineY = H - 58;
+                        let line = '', lineY = 85;
                         words.forEach(w => {
                             const test = line + w + ' ';
                             if (ctx.measureText(test).width > W - 110) {
                                 ctx.fillText(line.trim(), W / 2, lineY);
                                 line = w + ' ';
-                                lineY += 18;
+                                lineY += 20;
                             } else { line = test; }
                         });
                         if (line) ctx.fillText(line.trim(), W / 2, lineY);
@@ -992,7 +1029,7 @@
                     ctx.fillStyle = '#ffd700';
                     ctx.font = 'bold 36px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText('🛸 ALIEN MATH BLASTER', W / 2, H / 2 - 30);
+                    ctx.fillText(' ALIEN MATH BLASTER', W / 2, H / 2 - 30);
                     ctx.fillStyle = '#ffffff';
                     ctx.font = '16px Arial';
                     ctx.fillText('← → to move | SPACE to shoot', W / 2, H / 2 + 10);
@@ -1025,7 +1062,7 @@
 
                         ctx.fillStyle = '#9f7aea';
                         ctx.font = 'bold 14px Arial';
-                        ctx.fillText('🤖 AI Performance Analysis', W / 2, 170);
+                        ctx.fillText(' AI Performance Analysis', W / 2, 170);
 
                         ctx.fillStyle = '#e2e8f0';
                         ctx.font = '13px Arial';
@@ -1044,7 +1081,7 @@
                     } else {
                         ctx.fillStyle = '#a0aec0';
                         ctx.font = '14px Arial';
-                        ctx.fillText('🤖 Loading AI analysis...', W / 2, 180);
+                        ctx.fillText(' Loading AI analysis...', W / 2, 180);
                     }
 
                     ctx.fillStyle = '#48bb78';
@@ -1059,7 +1096,7 @@
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 36px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText('⏸ PAUSED', W / 2, H / 2);
+                    ctx.fillText(' PAUSED', W / 2, H / 2);
                 }
             }
 
@@ -1081,8 +1118,8 @@
 
             updateDiffBadge() {
                 const badge = document.getElementById('diffBadge');
-                const map = { easy: ['🟢 EASY', 'diff-easy'], medium: ['🟡 MEDIUM', 'diff-medium'], hard: ['🔴 HARD', 'diff-hard'] };
-                const [text, cls] = map[this.currentDifficulty];
+                const map = { easy: [' EASY', 'diff-easy'], medium: [' MEDIUM', 'diff-medium'], hard: [' HARD', 'diff-hard'] };
+                const [text, cls] = map[this.dda.difficulty];
                 badge.textContent = text;
                 badge.className = 'diff-badge ' + cls;
             }
@@ -1104,9 +1141,7 @@
                 this.shotsHit = 0;
                 this.streakCount = 0;
                 this.maxStreak = 0;
-                this.consecutiveCorrect = 0;
-                this.consecutiveWrong = 0;
-                this.currentDifficulty = 'easy';
+                this.dda.setLevel('easy');
                 this.hasShield = false;
                 this.slowMoActive = false;
                 this.aliens = [];
@@ -1127,7 +1162,7 @@
             pauseGame() {
                 if (!this.isRunning || this.gameOver) return;
                 this.isPaused = !this.isPaused;
-                document.getElementById('pauseBtn').textContent = this.isPaused ? '▶️ Resume' : '⏸️ Pause';
+                document.getElementById('pauseBtn').textContent = this.isPaused ? '▶ Resume' : ' Pause';
             }
 
             resetGame() {
@@ -1141,12 +1176,12 @@
                 this.floatingTexts = [];
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('pauseBtn').disabled = true;
-                document.getElementById('pauseBtn').textContent = '⏸️ Pause';
+                document.getElementById('pauseBtn').textContent = ' Pause';
                 document.getElementById('targetBanner').style.display = 'none';
                 this.score = 0;
                 this.lives = 5;
                 this.streakCount = 0;
-                this.currentDifficulty = 'easy';
+                this.dda.setLevel('easy');
                 this.hasShield = false;
                 this.slowMoActive = false;
                 this.updateStats();
@@ -1174,7 +1209,7 @@
                     });
                     const data = await res.json();
                     if (data.success) {
-                        this.aiHintText = '💡 ' + data.hint;
+                        this.aiHintText = ' ' + data.hint;
                         this.aiHintTimer = 250; // show for ~4 seconds
                     }
                 } catch (e) { console.error('AI hint error:', e); }

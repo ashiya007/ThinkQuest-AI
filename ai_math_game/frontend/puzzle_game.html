@@ -804,7 +804,7 @@
     <!-- Start Screen -->
     <div class="start-screen" id="startScreen">
         <div class="start-content">
-            <div class="start-title">🧩 Math Puzzle Quest</div>
+            <div class="start-title"> Math Puzzle Quest</div>
             <div class="start-subtitle">Navigate the grid by solving math problems!</div>
             <div class="start-info">
                 <div id="configInfo">Loading configuration...</div>
@@ -819,7 +819,7 @@
     <div class="game-container" id="gameContainer" style="display: none;">
         <!-- Header -->
         <div class="game-header">
-            <h1>🧩 Math Puzzle Quest</h1>
+            <h1> Math Puzzle Quest</h1>
             <p class="subtitle">Solve problems to automatically advance to the goal!</p>
         </div>
 
@@ -846,7 +846,7 @@
                 <div class="stat-label">Time</div>
             </div>
             <div class="stat-box">
-                <div class="difficulty-badge easy" id="difficultyBadge">🟢 EASY</div>
+                <div class="difficulty-badge easy" id="difficultyBadge"> EASY</div>
                 <div class="stat-label">AI Difficulty</div>
             </div>
         </div>
@@ -856,15 +856,15 @@
             <!-- Board Panel -->
             <div class="board-panel">
                 <div class="board-header">
-                    <h2>🗺️ Puzzle Board</h2>
+                    <h2> Puzzle Board</h2>
                     <div class="level-badge" id="levelBadge">Level 1</div>
                 </div>
 
                 <div class="puzzle-grid" id="puzzleGrid"></div>
 
                 <div class="board-controls">
-                    <button class="btn btn-reset" onclick="resetLevel()">🔄 Reset</button>
-                    <button class="btn btn-hint" onclick="getHint()">💡 Hint (-2)</button>
+                    <button class="btn btn-reset" onclick="resetLevel()"> Reset</button>
+                    <button class="btn btn-hint" onclick="getHint()"> Hint (-2)</button>
                 </div>
             </div>
 
@@ -879,7 +879,7 @@
                 </div>
 
                 <button class="btn btn-submit" id="submitBtn" onclick="submitAnswer()" disabled style="width: 100%;">
-                    ✓ Submit Answer
+                     Submit Answer
                 </button>
 
                 <div class="feedback" id="feedback"></div>
@@ -898,7 +898,7 @@
 
                 <!-- Adaptive Learning Panel -->
                 <div class="mastery-panel" id="masteryPanel">
-                    <h4>🧠 Skill Mastery (BKT Model)</h4>
+                    <h4> Skill Mastery (BKT Model)</h4>
                     <div id="masteryBars"><!-- Filled by JS --></div>
                     <div class="model-badge" id="modelBadge">
                         <span class="dot"></span>
@@ -912,7 +912,7 @@
     <!-- Level Complete Modal -->
     <div class="modal-overlay" id="levelModal">
         <div class="modal-content">
-            <div class="modal-icon">🎉</div>
+            <div class="modal-icon"></div>
             <div class="modal-title" id="modalTitle">Level Complete!</div>
             <p id="modalMessage">Great job! Ready for the next challenge?</p>
             <div class="modal-stats">
@@ -942,7 +942,7 @@
     <!-- Victory Modal -->
     <div class="modal-overlay" id="victoryModal">
         <div class="modal-content">
-            <div class="modal-icon">🏆</div>
+            <div class="modal-icon"></div>
             <div class="modal-title">Victory!</div>
             <p>Congratulations! You've mastered all levels!</p>
             <div class="modal-stats">
@@ -969,7 +969,8 @@
     <div class="adaptive-toast" id="adaptiveToast"></div>
 
     <script src="question_fallback.js"></script>
-    <script src="puzzle_game.js?v=3"></script>
+    <script src="adaptive_difficulty.js"></script>
+    <script src="puzzle_game.js?v=4"></script>
 </body>
 
 </html>

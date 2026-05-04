@@ -475,23 +475,57 @@ Rules:
                 })
             except Exception as api_err:
                 print(f"[AI Question] API error: {api_err}")
-                # Fallback to local basic arithmetic
+                # Fallback: generate a local question for the *requested* operation,
+                # not always multiplication.
                 import random as rnd
-                a, b = rnd.randint(1, 12), rnd.randint(1, 12)
-                ans = a * b
-                opts = list(set([str(ans), str(ans + rnd.randint(1,5)),
-                                 str(ans - rnd.randint(1,5)), str(a * (b+1))]))
+
+                # Map subtopic names to backend operation keys
+                subtopic_op_map = {
+                    'addition': 'addition', 'decimal_addition': 'addition',
+                    'subtraction': 'subtraction', 'decimal_subtraction': 'subtraction',
+                    'multiplication': 'multiplication', 'decimal_multiplication': 'multiplication',
+                    'division': 'division', 'decimal_division': 'division',
+                }
+                op = subtopic_op_map.get(subtopic, None)
+
+                if op == 'addition':
+                    a, b = rnd.randint(1, 50), rnd.randint(1, 50)
+                    ans = a + b
+                    q_text = f'{a} + {b} = ?'
+                    opts = list(set([str(ans), str(ans + rnd.randint(1, 5)),
+                                     str(ans - rnd.randint(1, 5)), str(ans + rnd.randint(6, 12))]))
+                elif op == 'subtraction':
+                    a = rnd.randint(10, 50); b = rnd.randint(1, a)
+                    ans = a - b
+                    q_text = f'{a} - {b} = ?'
+                    opts = list(set([str(ans), str(ans + rnd.randint(1, 5)),
+                                     str(ans - rnd.randint(1, 5)), str(ans + rnd.randint(6, 12))]))
+                elif op == 'division':
+                    b = rnd.randint(2, 10); q = rnd.randint(1, 12); a = b * q
+                    ans = q
+                    q_text = f'{a} ÷ {b} = ?'
+                    opts = list(set([str(ans), str(ans + rnd.randint(1, 3)),
+                                     str(ans - rnd.randint(1, 3)), str(ans + rnd.randint(4, 7))]))
+                else:
+                    # Default: multiplication
+                    a, b = rnd.randint(1, 12), rnd.randint(1, 12)
+                    ans = a * b
+                    q_text = f'{a} × {b} = ?'
+                    opts = list(set([str(ans), str(ans + rnd.randint(1, 5)),
+                                     str(ans - rnd.randint(1, 5)), str(a * (b + 1))]))
+                    op = 'multiplication'
+
                 while len(opts) < 4:
                     opts.append(str(ans + rnd.randint(-10, 10)))
                 rnd.shuffle(opts)
                 return jsonify({
                     'success': True,
-                    'question': f'{a} × {b} = ?',
+                    'question': q_text,
                     'answer': str(ans),
                     'options': opts[:4],
-                    'explanation': f'{a} × {b} = {ans}',
-                    'topic': 'basic_arithmetic',
-                    'subtopic': 'multiplication',
+                    'explanation': f'The correct answer is {ans}.',
+                    'topic': topic,
+                    'subtopic': subtopic,
                     'difficulty': difficulty,
                     'ai_generated': False
                 })
@@ -586,6 +620,193 @@ Rules:
                 else:
                     msg += " Don't give up! Practice makes perfect. Try again with easier questions."
                 return jsonify({'success': True, 'report': msg, 'ai_generated': False})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # ====================================================================
+    # ANALYTICS ENDPOINTS
+    # ====================================================================
+
+    @api_bp.route('/api/analytics/<student_id>', methods=['GET'])
+    def get_analytics(student_id):
+        """
+        Comprehensive analytics for a single student.
+        Returns time-series data, per-operation stats, difficulty trend,
+        and computed scores — all consumed by analytics_dashboard.html.
+        """
+        import sqlite3 as _sq
+        db_path = student_model.db_path
+        try:
+            conn = _sq.connect(db_path)
+            conn.row_factory = _sq.Row
+            cur = conn.cursor()
+
+            # ── 1. Time-series: accuracy over last 50 answers ──────────────
+            cur.execute('''
+                SELECT is_correct, time_taken, operation, difficulty, timestamp
+                FROM performance
+                WHERE student_id = ?
+                ORDER BY timestamp ASC
+                LIMIT 50
+            ''', (student_id,))
+            rows = cur.fetchall()
+
+            timeline = []
+            running_correct = 0
+            for i, r in enumerate(rows, 1):
+                running_correct += (1 if r['is_correct'] else 0)
+                timeline.append({
+                    'index': i,
+                    'is_correct': bool(r['is_correct']),
+                    'time_taken': round(r['time_taken'] or 0, 2),
+                    'operation': r['operation'],
+                    'difficulty': r['difficulty'],
+                    'rolling_accuracy': round(running_correct / i * 100, 1),
+                    'timestamp': r['timestamp']
+                })
+
+            # ── 2. Per-operation summary ───────────────────────────────────
+            cur.execute('''
+                SELECT operation,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) AS correct,
+                       AVG(time_taken) AS avg_time,
+                       MIN(time_taken) AS best_time
+                FROM performance
+                WHERE student_id = ?
+                GROUP BY operation
+            ''', (student_id,))
+            ops = {}
+            for r in cur.fetchall():
+                ops[r['operation']] = {
+                    'total': r['total'],
+                    'correct': r['correct'],
+                    'accuracy': round(r['correct'] / r['total'] * 100, 1) if r['total'] else 0,
+                    'avg_time': round(r['avg_time'] or 0, 2),
+                    'best_time': round(r['best_time'] or 0, 2)
+                }
+
+            # ── 3. Difficulty breakdown ────────────────────────────────────
+            cur.execute('''
+                SELECT difficulty,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) AS correct
+                FROM performance
+                WHERE student_id = ?
+                GROUP BY difficulty
+            ''', (student_id,))
+            diff_breakdown = {}
+            for r in cur.fetchall():
+                diff_breakdown[r['difficulty']] = {
+                    'total': r['total'],
+                    'correct': r['correct'],
+                    'accuracy': round(r['correct'] / r['total'] * 100, 1) if r['total'] else 0
+                }
+
+            # ── 4. Recent 10 answers (for activity feed) ───────────────────
+            cur.execute('''
+                SELECT question, correct_answer, student_answer, is_correct,
+                       operation, difficulty, time_taken, timestamp
+                FROM performance
+                WHERE student_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 10
+            ''', (student_id,))
+            recent = [{
+                'question': r['question'],
+                'correct_answer': r['correct_answer'],
+                'student_answer': r['student_answer'],
+                'is_correct': bool(r['is_correct']),
+                'operation': r['operation'],
+                'difficulty': r['difficulty'],
+                'time_taken': round(r['time_taken'] or 0, 2),
+                'timestamp': r['timestamp']
+            } for r in cur.fetchall()]
+
+            # ── 5. Daily activity (answers per day, last 14 days) ──────────
+            cur.execute('''
+                SELECT DATE(timestamp) AS day, COUNT(*) AS total,
+                       SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) AS correct
+                FROM performance
+                WHERE student_id = ?
+                  AND timestamp >= DATE('now', '-14 days')
+                GROUP BY DATE(timestamp)
+                ORDER BY day ASC
+            ''', (student_id,))
+            daily = [{'day': r['day'], 'total': r['total'], 'correct': r['correct']} for r in cur.fetchall()]
+
+            # ── 6. Overall summary ─────────────────────────────────────────
+            cur.execute('''
+                SELECT COUNT(*) AS total,
+                       SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) AS correct,
+                       AVG(time_taken) AS avg_time,
+                       MIN(time_taken) AS best_time
+                FROM performance WHERE student_id = ?
+            ''', (student_id,))
+            ov = cur.fetchone()
+
+            total_q = ov['total'] or 0
+            correct_q = ov['correct'] or 0
+            overall_acc = round(correct_q / total_q * 100, 1) if total_q else 0
+            learning_score = adaptive_ai.calculate_learning_score(
+                student_model.get_student_performance(student_id) or {}
+            )
+
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'student_id': student_id,
+                'summary': {
+                    'total_questions': total_q,
+                    'correct_answers': correct_q,
+                    'accuracy': overall_acc,
+                    'avg_time': round(ov['avg_time'] or 0, 2),
+                    'best_time': round(ov['best_time'] or 0, 2),
+                    'learning_score': round(learning_score, 1)
+                },
+                'timeline': timeline,
+                'operations': ops,
+                'difficulty_breakdown': diff_breakdown,
+                'recent_answers': recent,
+                'daily_activity': daily
+            })
+
+        except Exception as e:
+            print(f"[Analytics] Error: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @api_bp.route('/api/analytics/all_students', methods=['GET'])
+    def all_students_analytics():
+        """Returns a leaderboard of all students with summary stats."""
+        import sqlite3 as _sq
+        db_path = student_model.db_path
+        try:
+            conn = _sq.connect(db_path)
+            conn.row_factory = _sq.Row
+            cur = conn.cursor()
+            cur.execute('''
+                SELECT s.student_id, s.class,
+                       COUNT(p.id) AS total,
+                       SUM(CASE WHEN p.is_correct=1 THEN 1 ELSE 0 END) AS correct,
+                       AVG(p.time_taken) AS avg_time,
+                       MAX(p.timestamp) AS last_active
+                FROM students s
+                LEFT JOIN performance p ON s.student_id = p.student_id
+                GROUP BY s.student_id
+                ORDER BY correct DESC
+            ''')
+            students = [{
+                'student_id': r['student_id'],
+                'class': r['class'],
+                'total': r['total'] or 0,
+                'correct': r['correct'] or 0,
+                'accuracy': round((r['correct'] or 0) / max(r['total'] or 1, 1) * 100, 1),
+                'avg_time': round(r['avg_time'] or 0, 2),
+                'last_active': r['last_active']
+            } for r in cur.fetchall()]
+            conn.close()
+            return jsonify({'success': True, 'students': students})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 

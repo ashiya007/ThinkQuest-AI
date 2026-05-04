@@ -101,6 +101,84 @@ class SessionStore:
 
 
 # ============================================================================
+# SQLite-backed Game Session Store (persists teacher-launched sessions)
+# ============================================================================
+
+class GameSessionStore:
+    """Stores teacher-launched game sessions in SQLite so they survive restarts."""
+
+    def __init__(self, db_path='database/sessions.db'):
+        self.db_path = db_path
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self._init_db()
+
+    def _init_db(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS game_sessions (
+                session_id TEXT PRIMARY KEY,
+                session_data TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+    def set(self, session_id, session_data):
+        """Create or fully replace a session."""
+        now = time.time()
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            'INSERT OR REPLACE INTO game_sessions VALUES (?, ?, ?, ?)',
+            (session_id, json.dumps(session_data), now, now)
+        )
+        conn.commit()
+        conn.close()
+
+    def get(self, session_id):
+        """Return session dict or None."""
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.execute(
+            'SELECT session_data FROM game_sessions WHERE session_id=?',
+            (session_id,)
+        )
+        row = cur.fetchone()
+        conn.close()
+        return json.loads(row[0]) if row else None
+
+    def update(self, session_id, session_data):
+        """Update an existing session's data and bump updated_at."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            'UPDATE game_sessions SET session_data=?, updated_at=? WHERE session_id=?',
+            (json.dumps(session_data), time.time(), session_id)
+        )
+        conn.commit()
+        conn.close()
+
+    def __contains__(self, session_id):
+        return self.get(session_id) is not None
+
+    def __setitem__(self, session_id, session_data):
+        self.set(session_id, session_data)
+
+    def __getitem__(self, session_id):
+        val = self.get(session_id)
+        if val is None:
+            raise KeyError(session_id)
+        return val
+
+    def cleanup_expired(self):
+        """Remove sessions older than 2 hours."""
+        cutoff = time.time() - 7200
+        conn = sqlite3.connect(self.db_path)
+        conn.execute('DELETE FROM game_sessions WHERE created_at < ?', (cutoff,))
+        conn.commit()
+        conn.close()
+
+
+# ============================================================================
 # APP SETUP
 # ============================================================================
 
@@ -114,8 +192,8 @@ adaptive_ai = AdaptiveAI()
 prompt_parser = PromptParser(client)
 session_store = SessionStore()
 
-# Game sessions (teacher-launched, kept in memory — short-lived)
-game_sessions = {}
+# SQLite-backed game sessions (teacher-launched; persist across server restarts)
+game_sessions = GameSessionStore()
 
 
 # ============================================================================
@@ -126,6 +204,7 @@ from routes.session_routes import session_bp, init_session_routes
 
 init_api_routes(question_generator, student_model, adaptive_ai, prompt_parser, session_store, client, MODEL_ID)
 init_session_routes(question_generator, student_model, prompt_parser, game_sessions, client, MODEL_ID, app.static_folder)
+
 
 app.register_blueprint(api_bp)
 app.register_blueprint(session_bp)
